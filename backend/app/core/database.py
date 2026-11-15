@@ -22,6 +22,11 @@ else:
         "max_overflow": settings.DB_MAX_OVERFLOW,
         "pool_timeout": settings.DB_POOL_TIMEOUT,
     })
+    # Configure SSL for asyncpg when connecting to cloud-hosted databases (Supabase, Neon, Render)
+    if "asyncpg" in settings.DATABASE_URL:
+        is_remote_cloud = any(h in settings.DATABASE_URL for h in ("supabase.co", "neon.tech", "render.com", ".rds.amazonaws.com", "pooler.supabase.com"))
+        if (is_remote_cloud or getattr(settings, "DB_REQUIRE_SSL", False)) and not getattr(settings, "DB_DISABLE_SSL", False):
+            connect_args.setdefault("ssl", "require")
 
 engine = create_async_engine(
     settings.DATABASE_URL,

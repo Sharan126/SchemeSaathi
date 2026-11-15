@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 5
     DB_POOL_TIMEOUT: int = 30
+    DB_REQUIRE_SSL: bool = False
+    DB_DISABLE_SSL: bool = False
 
     # LLM Settings
     LLM_PROVIDER: str = "gemini"  # gemini | openai | local_mock
@@ -66,7 +68,60 @@ class Settings(BaseSettings):
         return [loc.strip() for loc in self.SUPPORTED_LOCALES.split(",") if loc.strip()]
 
     @model_validator(mode="after")
-    def validate_production_guards(self):
+    def normalize_and_validate_database_urls(self):
+        import urllib.parse
+
+        # 1. Normalize async DATABASE_URL
+        url = self.DATABASE_URL.strip()
+        require_ssl = False
+        disable_ssl = False
+
+        # Extract and remove sslmode query parameter if present (incompatible with asyncpg)
+        if "sslmode=" in url.lower():
+            parsed = urllib.parse.urlsplit(url)
+            q_params = urllib.parse.parse_qsl(parsed.query)
+            new_params = []
+            for k, v in q_params:
+                if k.lower() == "sslmode":
+                    if v.lower() in ("require", "verify-ca", "verify-full", "prefer"):
+                        require_ssl = True
+                    elif v.lower() == "disable":
+                        disable_ssl = True
+                else:
+                    new_params.append((k, v))
+            new_query = urllib.parse.urlencode(new_params)
+            url = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path, new_query, parsed.fragment))
+
+        # Standardize on asyncpg driver for PostgreSQL async engine
+        if url.startswith("postgres://"):
+            url = "postgresql+asyncpg://" + url[len("postgres://"):]
+        elif url.startswith("postgresql://"):
+            url = "postgresql+asyncpg://" + url[len("postgresql://"):]
+        elif url.startswith("postgresql+psycopg://"):
+            url = "postgresql+asyncpg://" + url[len("postgresql+psycopg://"):]
+
+        self.DATABASE_URL = url
+        if require_ssl:
+            self.DB_REQUIRE_SSL = True
+        if disable_ssl:
+            self.DB_DISABLE_SSL = True
+
+        # 2. Derive/normalize synchronous DATABASE_URL_SYNC for Alembic & sync initializers
+        sync_url = self.DATABASE_URL_SYNC.strip()
+        if sync_url.startswith("sqlite") and not self.DATABASE_URL.startswith("sqlite"):
+            # Automatically derive sync URL from async PostgreSQL URL
+            if self.DATABASE_URL.startswith("postgresql+asyncpg://"):
+                sync_url = "postgresql://" + self.DATABASE_URL[len("postgresql+asyncpg://"):]
+            elif self.DATABASE_URL.startswith("postgresql+psycopg://"):
+                sync_url = "postgresql://" + self.DATABASE_URL[len("postgresql+psycopg://"):]
+        elif sync_url.startswith("postgres://"):
+            sync_url = "postgresql://" + sync_url[len("postgres://"):]
+        elif sync_url.startswith("postgresql+asyncpg://"):
+            sync_url = "postgresql://" + sync_url[len("postgresql+asyncpg://"):]
+
+        self.DATABASE_URL_SYNC = sync_url
+
+        # 3. Production Configuration Guard
         if self.ENVIRONMENT.lower() in ("production", "prod"):
             if self.DATABASE_URL.startswith("sqlite"):
                 raise ValueError(

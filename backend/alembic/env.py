@@ -26,7 +26,15 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL_SYNC)
+
+# Ensure Alembic receives a synchronous PostgreSQL/SQLite connection URL
+sync_url = settings.DATABASE_URL_SYNC
+if sync_url.startswith("postgresql+asyncpg://"):
+    sync_url = "postgresql://" + sync_url[len("postgresql+asyncpg://"):]
+elif sync_url.startswith("postgres://"):
+    sync_url = "postgresql://" + sync_url[len("postgres://"):]
+
+config.set_main_option("sqlalchemy.url", sync_url)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
