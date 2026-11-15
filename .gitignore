@@ -1,0 +1,43 @@
+# Node & Next.js
+frontend/.next/
+frontend/node_modules/
+frontend/out/
+.next/
+node_modules/
+
+# Python
+backend/.venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Databases & local stores
+*.db
+*.sqlite
+*.sqlite3
+*.bak
+*.tsbuildinfo
+postgres_data/
+backend/test_payload.json
+backend/test_gemini38.json
+
+# Environment files & Secrets
+.env
+.env.*
+*.env
+**/.env
+**/.env.*
+*.log
+*.sqlite
+*.sqlite3
+*.db
+backend/schemesaathi.db
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

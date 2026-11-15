@@ -1,0 +1,90 @@
+{
+  "brand": {
+    "name": "SchemeSaathi",
+    "tagline": "Government Scheme Discovery & Eligibility Assistant for All Indian Citizens",
+    "gov_portal": "Official Indian Welfare Information Portal"
+  },
+  "nav": {
+    "home": "Home",
+    "schemes": "Explore Schemes",
+    "wizard": "Eligibility Wizard",
+    "assistant": "AI Assistant",
+    "documents": "Document Center",
+    "admin": "Verifier Portal"
+  },
+  "home": {
+    "hero_title": "Find Government Schemes You Are Eligible For",
+    "hero_subtitle": "100% verified Central Government schemes for farmers, women, students, senior citizens, and Divyangjan. Check eligibility anonymously without sharing sensitive personal documents.",
+    "check_eligibility_btn": "Check Your Eligibility (Free & Anonymous)",
+    "browse_schemes_btn": "Browse All Schemes",
+    "search_placeholder": "Search schemes (e.g. PM-KISAN, scholarship, health cover, farmer grant)...",
+    "categories_heading": "Browse Schemes by Sector",
+    "principles_heading": "Our Guarantees to Every Citizen",
+    "rule_engine_title": "Deterministic Rule Engine",
+    "rule_engine_desc": "Zero guesswork or AI hallucinations. Eligibility is evaluated using verified rules based on official ministry gazettes.",
+    "privacy_title": "100% Privacy-First",
+    "privacy_desc": "No Aadhaar, PAN, phone number, or login required. Your eligibility check runs anonymously.",
+    "citations_title": "Official Citations & Dates",
+    "citations_desc": "Every benefit, eligibility criterion, and procedure links directly to the official government gazette or ministry portal."
+  },
+  "schemes": {
+    "title": "Government Schemes Catalogue",
+    "subtitle": "Discover Central Government welfare programs with clear benefits, eligibility criteria, and required documents.",
+    "filter_category": "Category",
+    "filter_beneficiary": "Beneficiary",
+    "all_categories": "All Categories",
+    "all_beneficiaries": "All Beneficiaries",
+    "verified_badge": "Official Verified Record",
+    "ministry_label": "Ministry",
+    "benefits_label": "Key Benefit",
+    "view_details": "View Full Details & Criteria",
+    "no_results": "No schemes found matching your search criteria."
+  },
+  "details": {
+    "back_to_schemes": "Back to Schemes",
+    "official_portal": "Official Ministry Portal",
+    "gazette_source": "Official Gazette Reference",
+    "verified_on": "Verified Date",
+    "funding_type": "Funding Type",
+    "application_mode": "Application Mode",
+    "benefits_tab": "Benefits & Grants",
+    "criteria_tab": "Eligibility Criteria",
+    "documents_tab": "Required Documents",
+    "how_to_apply_tab": "How to Apply",
+    "check_my_eligibility": "Check if you qualify for this scheme",
+    "mandatory_doc": "Mandatory Document",
+    "issuing_authority": "Issuing Authority",
+    "alternatives": "Accepted Alternatives"
+  },
+  "wizard": {
+    "title": "Guided Eligibility Wizard",
+    "subtitle": "Answer a few simple questions. Our deterministic engine will match you against all Central Government schemes in real time.",
+    "anonymous_notice": "Anonymous & Private: We do not store or collect your name, phone number, or government IDs.",
+    "step_counter": "Question",
+    "next_btn": "Next Question",
+    "prev_btn": "Previous",
+    "calculate_btn": "Evaluate My Eligibility",
+    "results_title": "Your Eligibility Evaluation Results",
+    "eligible_heading": "Schemes You Are Eligible For",
+    "potential_heading": "Schemes Requiring More Information",
+    "ineligible_heading": "Schemes You Do Not Qualify For",
+    "why_eligible": "Why you qualify",
+    "why_ineligible": "Disqualifying criteria"
+  },
+  "assistant": {
+    "title": "Grounded Scheme AI Assistant",
+    "subtitle": "Ask questions in English, Hindi, or Kannada. All answers are strictly grounded in verified government circulars with source citations.",
+    "disclaimer": "SchemeSaathi answers only using verified official records. If a scheme rule is unverified, our assistant will state so clearly.",
+    "input_placeholder": "Ask a question (e.g., 'What are the exclusion criteria for PM-KISAN?')...",
+    "send_btn": "Ask",
+    "citations_label": "Verified Official Citations",
+    "suggested_questions": "Suggested Questions:"
+  },
+  "documents": {
+    "title": "Document Readiness Center",
+    "subtitle": "Learn which documents are required for welfare schemes, where to obtain them, and acceptable alternatives.",
+    "search_placeholder": "Search documents (Aadhaar, Land Record, Income Certificate)...",
+    "authority_label": "Issuing Authority",
+    "tat_label": "Estimated Processing Time"
+  }
+}
