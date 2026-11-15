@@ -56,6 +56,27 @@ export default function AssistantPage() {
       setQuery("");
     } catch (err) {
       console.error("Assistant query failed", err);
+      setConversation((prev) => [
+        ...prev,
+        {
+          query: q,
+          response: {
+            query: q,
+            locale,
+            answer:
+              locale === "hi"
+                ? "सहायक सेवा से संपर्क करने में समस्या हुई। कृपया पुनः प्रयास करें या निकटतम सीएससी केंद्र से संपर्क करें।"
+                : locale === "kn"
+                ? "ಸಹಾಯಕ ಸೇವೆಯನ್ನು ಸಂಪರ್ಕಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಪುನಃ ಪ್ರಯತ್ನಿಸಿ ಅಥವಾ ಹತ್ತಿರದ ಸಿಎಸ್‌ಸಿ ಕೇಂದ್ರವನ್ನು ಸಂಪರ್ಕಿಸಿ."
+                : "Unable to reach the assistant service at this moment. Please try again or consult the nearest Common Service Centre (CSC).",
+            is_grounded: false,
+            confidence_score: 0.0,
+            citations: [],
+            retrieved_chunks: [],
+          },
+        },
+      ]);
+      setQuery("");
     } finally {
       setLoading(false);
     }
