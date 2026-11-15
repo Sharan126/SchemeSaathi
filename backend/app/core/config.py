@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str = "gemini"  # gemini | openai | local_mock
     LLM_MODEL: str = "gemini-2.5-flash-lite"
     LLM_API_KEY: Optional[str] = None
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: Optional[str] = None
     LLM_TEMPERATURE: float = 0.0
     LLM_MAX_TOKENS: int = 1024
 
@@ -61,7 +63,7 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> List[str]:
-        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
+        return [origin.strip().rstrip("/") for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
 
     @property
     def supported_locales_list(self) -> List[str]:
@@ -116,6 +118,12 @@ class Settings(BaseSettings):
         # 0. Sanitize raw URLs against unescaped special characters in credentials
         self.DATABASE_URL = self.sanitize_db_url(self.DATABASE_URL.strip())
         self.DATABASE_URL_SYNC = self.sanitize_db_url(self.DATABASE_URL_SYNC.strip())
+
+        # Resolve Gemini API Key & Model aliases if user set GEMINI_API_KEY / GEMINI_MODEL
+        if self.GEMINI_API_KEY and not self.LLM_API_KEY:
+            self.LLM_API_KEY = self.GEMINI_API_KEY
+        if self.GEMINI_MODEL and (not self.LLM_MODEL or self.LLM_MODEL == "gemini-2.5-flash-lite"):
+            self.LLM_MODEL = self.GEMINI_MODEL
 
         # 1. Normalize async DATABASE_URL
         url = self.DATABASE_URL

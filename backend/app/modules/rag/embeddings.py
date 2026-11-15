@@ -200,7 +200,7 @@ class EmbeddingService:
             provider_type = os.getenv("EMBEDDING_PROVIDER", "auto").lower()
             if provider_type in ("sentence_transformer", "sentence_transformers", "neural"):
                 cls._provider = SentenceTransformerEmbeddingProvider()
-            elif provider_type == "hash":
+            elif provider_type in ("hash", "deterministic-hash", "deterministic_hash", "local_hash"):
                 cls._provider = DeterministicHashEmbeddingProvider()
             else:
                 # "auto": Try neural provider first; it safely falls back if dependencies/weights are missing
