@@ -28,7 +28,7 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 # Ensure Alembic receives a synchronous PostgreSQL/SQLite connection URL
-sync_url = settings.DATABASE_URL_SYNC
+sync_url = settings.sanitize_db_url(settings.DATABASE_URL_SYNC)
 if sync_url.startswith("postgresql+asyncpg://"):
     sync_url = "postgresql://" + sync_url[len("postgresql+asyncpg://"):]
 elif sync_url.startswith("postgres://"):

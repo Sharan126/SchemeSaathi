@@ -67,12 +67,58 @@ class Settings(BaseSettings):
     def supported_locales_list(self) -> List[str]:
         return [loc.strip() for loc in self.SUPPORTED_LOCALES.split(",") if loc.strip()]
 
+    @staticmethod
+    def sanitize_db_url(url: str) -> str:
+        """
+        Safely sanitizes database connection strings.
+        If a database password contains unescaped special characters such as '@',
+        standard URL parsers misinterpret everything after the first '@' as the hostname.
+        This helper isolates the credentials from the network authority and percent-encodes
+        the password so that both psycopg and asyncpg connect cleanly.
+        """
+        import urllib.parse
+        if not url or "://" not in url:
+            return url
+
+        scheme, rest = url.split("://", 1)
+
+        path_and_query = rest
+        query = ""
+        if "?" in path_and_query:
+            path_and_query, query = path_and_query.split("?", 1)
+            query = "?" + query
+
+        if "/" in path_and_query:
+            netloc, path = path_and_query.split("/", 1)
+            path = "/" + path
+        else:
+            netloc, path = path_and_query, ""
+
+        if "@" in netloc:
+            parts = netloc.split("@")
+            # In RFC 3986, hostnames cannot contain '@'. The last part is always host[:port].
+            host_port = parts[-1]
+            user_pass = "@".join(parts[:-1])
+            if ":" in user_pass:
+                user, pwd = user_pass.split(":", 1)
+                # Decode first to avoid double-encoding %40 -> %2540
+                unquoted_pwd = urllib.parse.unquote(pwd)
+                encoded_pwd = urllib.parse.quote_plus(unquoted_pwd)
+                user_pass = f"{user}:{encoded_pwd}"
+            netloc = f"{user_pass}@{host_port}"
+
+        return f"{scheme}://{netloc}{path}{query}"
+
     @model_validator(mode="after")
     def normalize_and_validate_database_urls(self):
         import urllib.parse
 
+        # 0. Sanitize raw URLs against unescaped special characters in credentials
+        self.DATABASE_URL = self.sanitize_db_url(self.DATABASE_URL.strip())
+        self.DATABASE_URL_SYNC = self.sanitize_db_url(self.DATABASE_URL_SYNC.strip())
+
         # 1. Normalize async DATABASE_URL
-        url = self.DATABASE_URL.strip()
+        url = self.DATABASE_URL
         require_ssl = False
         disable_ssl = False
 
