@@ -40,11 +40,22 @@ class GroundedQAService:
         Synthesizes an answer grounded exclusively in retrieved official scheme text chunks.
         Strictly forbids hallucination and provides verifiable source citations.
         """
-        # 0. Handle friendly conversational greetings and self-introductions
+        # 0. Handle friendly conversational greetings, self-introductions, and bot identity
         q_norm = query.lower().strip(" .!?,;:")
         greeting_prefixes = ["hi", "hello", "hey", "namaste", "namaskara", "namaskar", "good morning", "good evening", "good afternoon"]
-        identity_queries = ["who are you", "what is your name", "what's your name", "whats your name", "what is ur name", "what are you", "what can you do", "help"]
-        is_greeting = q_norm in greeting_prefixes or any(q_norm.startswith(g + " ") for g in greeting_prefixes) or q_norm in identity_queries
+        identity_queries = [
+            "who are you", "what is your name", "what's your name", "whats your name",
+            "what is ur name", "what are you", "what can you do", "help", "who created you",
+            "who built you", "who made you", "what is schemesaathi", "about you"
+        ]
+        self_intro_prefixes = ["i am ", "im ", "i'm ", "my name is ", "myself "]
+        
+        is_greeting = (
+            q_norm in greeting_prefixes
+            or any(q_norm.startswith(g + " ") for g in greeting_prefixes)
+            or q_norm in identity_queries
+            or any(q_norm.startswith(p) for p in self_intro_prefixes)
+        )
 
         if is_greeting:
             greeting_answers = {
@@ -71,6 +82,24 @@ class GroundedQAService:
                 query=query,
                 locale=locale,
                 answer=greeting_answers.get(locale, greeting_answers["en"]),
+                is_grounded=True,
+                confidence_score=1.0,
+                citations=[],
+                retrieved_chunks=[]
+            )
+
+        # 0a. Handle gratitude and conversational closures
+        gratitude_phrases = ["thank you", "thanks", "thank you so much", "dhanyawad", "dhanyavad", "dhanyavadagalu", "bye", "goodbye", "see you"]
+        if q_norm in gratitude_phrases or any(q_norm.startswith(gp) for gp in ["thank you", "thanks", "dhanyawad", "dhanyavad"]):
+            gratitude_msgs = {
+                "en": "You're very welcome! If you have any more questions about Central Government schemes or need to check your eligibility, I am always here to help. Have a wonderful day!",
+                "hi": "आपका बहुत-बहुत स्वागत है! यदि आपके पास केंद्र सरकार की योजनाओं के बारे में कोई अन्य प्रश्न हैं या पात्रता जांचना चाहते हैं, तो मैं हमेशा आपकी सहायता के लिए तैयार हूँ। आपका दिन शुभ हो!",
+                "kn": "ನಿಮಗೆ ಸ್ವಾಗತ! ಕೇಂದ್ರ ಸರ್ಕಾರದ ಯೋಜನೆಗಳ ಬಗ್ಗೆ ನಿಮಗೆ ಹೆಚ್ಚಿನ ಪ್ರಶ್ನೆಗಳಿದ್ದರೆ ಅಥವಾ ಅರ್ಹತೆ ಪರೀಕ್ಷಿಸಲು ಬಯಸಿದರೆ, ನಾನು ಯಾವಾಗಲೂ ಸಹಾಯ ಮಾಡಲು ಇಲ್ಲಿದ್ದೇನೆ. ಶುಭ ದಿನ!"
+            }
+            return GroundedAnswerResponse(
+                query=query,
+                locale=locale,
+                answer=gratitude_msgs.get(locale, gratitude_msgs["en"]),
                 is_grounded=True,
                 confidence_score=1.0,
                 citations=[],
@@ -107,6 +136,27 @@ class GroundedQAService:
                 query=query,
                 locale=locale,
                 answer=illegal_msgs.get(locale, illegal_msgs["en"]),
+                is_grounded=False,
+                confidence_score=0.0,
+                citations=[],
+                retrieved_chunks=[]
+            )
+
+        # 0d. Intercept general trivia, coding, or clearly non-welfare requests
+        chitchat_or_trivia = [
+            "tell me a joke", "what is the weather", "current weather", "who is the prime minister",
+            "write a python", "write code", "recipe", "play music", "sing a song", "movie"
+        ]
+        if any(t in q_norm for t in chitchat_or_trivia):
+            trivia_msgs = {
+                "en": "I am SchemeSaathi, an AI assistant specifically dedicated to Indian Government Welfare Schemes (such as PM-KISAN, Ayushman Bharat PM-JAY, PMMVY, scholarships, etc.). I cannot assist with general topics or trivia, but I would be glad to help you find schemes you qualify for or answer any welfare-related questions!",
+                "hi": "मैं स्कीमसाथी हूँ, एक ऐसा एआई सहायक जो विशेष रूप से भारत सरकार की कल्याणकारी योजनाओं (जैसे पीएम-किसान, आयुष्मान भारत, पीएमएमवीवाई, छात्रवृत्ति आदि) के लिए समर्पित है। मैं सामान्य विषयों में सहायता नहीं कर सकता, लेकिन सरकारी योजनाओं से संबंधित जानकारी के लिए हमेशा उपलब्ध हूँ!",
+                "kn": "ನಾನು ಸ್ಕೀಮ್‌ಸಾಥಿ, ಭಾರತ ಸರ್ಕಾರದ ಕಲ್ಯಾಣ ಯೋಜನೆಗಳಿಗೆ (ಪಿಎಂ-ಕಿಸಾನ್, ಆಯುಷ್ಮಾನ್ ಭಾರತ್, ವಿದ್ಯಾರ್ಥಿವೇತನ ಇತ್ಯಾದಿ) ಮೀಸಲಾದ ಎಐ ಸಹಾಯಕ. ಸಾಮಾನ್ಯ ವಿಷಯಗಳಲ್ಲಿ ನಾನು ಉತ್ತರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ, ಆದರೆ ಸರ್ಕಾರಿ ಯೋಜನೆಗಳ ಕುರಿತು ನಿಮಗೆ ಮಾರ್ಗದರ್ಶನ ನೀಡಲು ಸಿದ್ಧನಿದ್ದೇನೆ!"
+            }
+            return GroundedAnswerResponse(
+                query=query,
+                locale=locale,
+                answer=trivia_msgs.get(locale, trivia_msgs["en"]),
                 is_grounded=False,
                 confidence_score=0.0,
                 citations=[],
