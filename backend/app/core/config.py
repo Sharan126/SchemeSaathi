@@ -154,7 +154,13 @@ class Settings(BaseSettings):
 
         # 2. Derive/normalize synchronous DATABASE_URL_SYNC for Alembic & sync initializers
         sync_url = self.DATABASE_URL_SYNC.strip()
-        if sync_url.startswith("sqlite") and not self.DATABASE_URL.startswith("sqlite"):
+        # Auto-derive if default SQLite or if DATABASE_URL_SYNC mistakenly still points to direct IPv6 supabase.co while DATABASE_URL uses IPv4 pooler
+        should_derive = (
+            sync_url.startswith("sqlite")
+            or ("supabase.co" in sync_url and "pooler.supabase.com" in self.DATABASE_URL)
+        ) and not self.DATABASE_URL.startswith("sqlite")
+
+        if should_derive:
             # Automatically derive sync URL from async PostgreSQL URL
             if self.DATABASE_URL.startswith("postgresql+asyncpg://"):
                 sync_url = "postgresql://" + self.DATABASE_URL[len("postgresql+asyncpg://"):]
