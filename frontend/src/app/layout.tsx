@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { FloatingVoiceButton } from "@/components/FloatingVoiceButton";
 
 export const metadata: Metadata = {
   title: "SchemeSaathi — Multilingual Government Scheme Discovery & Eligibility Platform",
@@ -23,6 +24,7 @@ export default function RootLayout({
             {children}
           </main>
           <Footer />
+          <FloatingVoiceButton />
         </LanguageProvider>
       </body>
     </html>

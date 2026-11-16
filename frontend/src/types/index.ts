@@ -120,3 +120,42 @@ export interface DocumentDirectoryItem {
   description: LocalizedString;
   estimated_tat_days: string;
 }
+
+export interface SpokenCitation {
+  scheme_id: string;
+  scheme_name: string;
+  official_portal_url: string;
+  source_reference_date: string;
+}
+
+export interface VoiceChatResponse {
+  spoken_text: string;
+  display_text: string;
+  language: string;
+  dialogue_mode: "DISCOVERY" | "ELIGIBILITY_INTERVIEW" | "DOCUMENT_GUIDANCE" | "APPLICATION_STEPS";
+  suggested_spoken_prompts: string[];
+  citations: SpokenCitation[];
+  action_type?: string;
+  confidence_score: number;
+}
+
+export interface SpokenEligibilityQuestion {
+  field_name: string;
+  question_spoken: string;
+  question_display: string;
+  language: string;
+  expected_type: string;
+  step_number: number;
+  total_steps: number;
+}
+
+export interface VoiceInterviewState {
+  session_id: string;
+  language: string;
+  target_scheme_id?: string;
+  answers: Record<string, any>;
+  current_question?: SpokenEligibilityQuestion | null;
+  is_completed: boolean;
+  eligible_schemes_count: number;
+  verdict_spoken?: string;
+}

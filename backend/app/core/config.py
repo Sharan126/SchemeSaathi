@@ -63,7 +63,17 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> List[str]:
-        return [origin.strip().rstrip("/") for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
+        origins = [origin.strip().rstrip("/") for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
+        extra = [
+            "https://schemesaathi.vercel.app",
+            "https://scheme-saathi-six.vercel.app",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ]
+        for o in extra:
+            if o not in origins:
+                origins.append(o)
+        return origins
 
     @property
     def supported_locales_list(self) -> List[str]:

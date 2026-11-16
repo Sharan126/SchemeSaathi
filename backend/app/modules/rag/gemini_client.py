@@ -77,12 +77,26 @@ class GeminiClient:
         max_output_tokens: int = 1024
     ) -> Optional[str]:
         """
-        Executes a generateContent request with bounded retries, thinking budget cap, and circuit breaker.
+        Executes a generateContent request with bounded retries and circuit breaker.
         Returns generated text on success, or None on failure (triggering deterministic fallback).
         """
         if not self.is_configured:
             logger.debug("GeminiClient: No API key configured. Skipping external LLM generation.")
             return None
+
+        # Check for non-Google AI Studio key format (e.g. internal auth tokens starting with AQ.)
+        if self.api_key and not self.api_key.startswith("AIza"):
+            logger.warning(
+                "GeminiClient: API key format '%s' is not a standard Google AI Studio key (must start with 'AIzaSy...'). "
+                "Skipping external API call to avoid 400 Bad Request; using deterministic grounded synthesis.",
+                mask_key(self.api_key)
+            )
+            return None
+
+        # Normalize model identifier
+        model = self.model or "gemini-2.0-flash"
+        if "2.5" in model or "flash-lite" in model:
+            model = "gemini-2.0-flash"
 
         # 0. Check Circuit Breaker
         if self.is_circuit_open():
@@ -93,7 +107,7 @@ class GeminiClient:
             )
             return None
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
         payload = {
             "contents": [
                 {
@@ -103,9 +117,6 @@ class GeminiClient:
             "generationConfig": {
                 "temperature": temperature,
                 "maxOutputTokens": max_output_tokens,
-                "thinkingConfig": {
-                    "thinkingBudget": 0  # Disable prolonged chain-of-thought to achieve fast <3s interactive turns
-                }
             }
         }
 
@@ -115,7 +126,7 @@ class GeminiClient:
             try:
                 logger.debug(
                     "GeminiClient: Sending request to model=%s (attempt %d/%d, key=%s)",
-                    self.model, attempt, self.max_retries, masked
+                    model, attempt, self.max_retries, masked
                 )
                 with httpx.Client(timeout=self.timeout) as client:
                     resp = client.post(url, json=payload)

@@ -16,6 +16,7 @@ import {
   RotateCcw,
   Sparkles,
   Info,
+  Mic,
 } from "lucide-react";
 
 function WizardContent() {
@@ -114,6 +115,38 @@ function WizardContent() {
           </button>
         </div>
       )}
+
+      {/* Voice Eligibility Mode Banner */}
+      <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl p-3.5 sm:p-4 shadow-md flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex items-center space-x-3">
+          <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+            <Mic className="w-5 h-5 text-white animate-pulse" />
+          </div>
+          <div>
+            <p className="text-xs sm:text-sm font-bold">
+              {locale === "kn"
+                ? "ಫಾರ್ಮ್ ಓದಲು ಅಥವಾ ಭರ್ತಿ ಮಾಡಲು ಕಷ್ಟವೇ? ಧ್ವನಿ ಮೂಲಕ ಅರ್ಹತೆ ಪರಿಶೀಲಿಸಿ!"
+                : locale === "hi"
+                ? "फॉर्म भरने में असुविधा? बोलकर अपनी पात्रता की जांच करें!"
+                : "Cannot read or fill this form? Check eligibility by speaking!"}
+            </p>
+            <p className="text-[11px] sm:text-xs text-amber-100">
+              {locale === "kn"
+                ? "ಕನ್ನಡ, ಹಿಂದಿ ಅಥವಾ ಇಂಗ್ಲಿಷ್‌ನಲ್ಲಿ ನೇರ ಧ್ವನಿ ಸಂದರ್ಶನ"
+                : locale === "hi"
+                ? "कन्नड़, हिंदी या अंग्रेजी में सीधा बोलचाल साक्षात्कार"
+                : "Interactive spoken interview in Kannada, Hindi, or English"}
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/voice?mode=eligibility"
+          className="inline-flex items-center space-x-1.5 px-4 py-2 bg-white text-orange-600 hover:bg-orange-50 font-bold text-xs sm:text-sm rounded-lg shadow transition-all shrink-0"
+        >
+          <span>{locale === "kn" ? "ಧ್ವನಿ ಆರಂಭಿಸಿ" : locale === "hi" ? "बोलना शुरू करें" : "Speak to Check"}</span>
+          <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
 
       {!results ? (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-10 space-y-8">

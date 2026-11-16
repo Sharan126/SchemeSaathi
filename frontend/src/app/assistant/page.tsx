@@ -12,7 +12,10 @@ import {
   HelpCircle,
   AlertCircle,
   FileCheck2,
+  Mic,
+  ArrowRight,
 } from "lucide-react";
+import Link from "next/link";
 
 export default function AssistantPage() {
   const { t, locale } = useLanguage();
@@ -96,6 +99,40 @@ export default function AssistantPage() {
         <p className="text-sm text-slate-600 max-w-xl mx-auto">
           {t("assistant.subtitle")}
         </p>
+      </div>
+
+      {/* Voice Assistant Banner */}
+      <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl p-3.5 sm:p-4 shadow-md flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+            <Mic className="w-5 h-5 text-white animate-pulse" />
+          </div>
+          <div>
+            <p className="text-sm font-bold">
+              {locale === "kn"
+                ? "ಟೈಪ್ ಮಾಡಲು ಕಷ್ಟವೇ? ಧ್ವನಿ ಸಹಾಯಕದೊಂದಿಗೆ ಮಾತನಾಡಿ!"
+                : locale === "hi"
+                ? "टाइप करने में कठिनाई? आवाज़ सहायक से सीधे बोलकर पूछें!"
+                : "Prefer speaking over typing? Talk with Voice Assistant!"}
+            </p>
+            <p className="text-xs text-amber-100">
+              {locale === "kn"
+                ? "ಕನ್ನಡ, ಹಿಂದಿ ಮತ್ತು ಇಂಗ್ಲಿಷ್‌ನಲ್ಲಿ ನೇರ ಧ್ವನಿ ಸಂಭಾಷಣೆ ಲಭ್ಯವಿದೆ."
+                : locale === "hi"
+                ? "कन्नड़, हिंदी और अंग्रेजी में प्राकृतिक बातचीत उपलब्ध है।"
+                : "Natural trilingual voice dialogue in Kannada, Hindi, and English."}
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/voice"
+          className="inline-flex items-center space-x-1.5 px-4 py-2 bg-white text-orange-600 hover:bg-orange-50 font-bold text-xs sm:text-sm rounded-lg shadow transition-all shrink-0"
+        >
+          <span>
+            {locale === "kn" ? "ಧ್ವನಿ ಆರಂಭಿಸಿ" : locale === "hi" ? "बोलना शुरू करें" : "Launch Voice AI"}
+          </span>
+          <ArrowRight className="w-4 h-4" />
+        </Link>
       </div>
 
       {/* Safety Notice Banner */}

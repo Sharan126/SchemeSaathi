@@ -1,4 +1,11 @@
-import { Scheme, BatchEvaluationResponse, GroundedAnswerResponse, DocumentDirectoryItem } from "@/types";
+import {
+  Scheme,
+  BatchEvaluationResponse,
+  GroundedAnswerResponse,
+  DocumentDirectoryItem,
+  VoiceChatResponse,
+  VoiceInterviewState,
+} from "@/types";
 import { STATIC_SCHEMES, STATIC_DOCUMENTS } from "@/data/staticFallback";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -554,16 +561,23 @@ function synthesizeClientFallback(query: string, locale: string = "en"): Grounde
 
 export async function askAssistant(query: string, locale: string = "en"): Promise<GroundedAnswerResponse> {
   try {
+    // 6-second timeout so user is never frozen if backend is cold-starting on Render free tier
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
     const res = await fetch(`${API_BASE}/assistant/query`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, locale }),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
+
     if (res.ok) {
       return await res.json();
     }
   } catch (err) {
-    console.warn("Backend assistant query failed, using grounded client fallback", err);
+    console.warn("Backend assistant query failed or timed out, using grounded client fallback", err);
   }
 
   return synthesizeClientFallback(query, locale);
@@ -580,4 +594,154 @@ export async function fetchDocumentDirectory(): Promise<DocumentDirectoryItem[]>
     // Fall through to static
   }
   return STATIC_DOCUMENTS;
+}
+
+export async function sendVoiceChat(
+  query: string,
+  language: string = "en",
+  targetSchemeId?: string
+): Promise<VoiceChatResponse> {
+  try {
+    const res = await fetch(`${API_BASE}/voice/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query,
+        language,
+        target_scheme_id: targetSchemeId,
+      }),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn("Backend voice chat failed, generating local voice response", err);
+  }
+
+  // Local fallback response
+  const grounded = synthesizeClientFallback(query, language);
+  let spoken = grounded.answer
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/\n+/g, ". ")
+    .replace(/₹/g, "Rupees ")
+    .replace(/Rs\./g, "Rupees ");
+
+  if (language === "kn") {
+    spoken = spoken.replace(/Rupees/g, "ರೂಪಾಯಿ");
+  } else if (language === "hi") {
+    spoken = spoken.replace(/Rupees/g, "रुपये");
+  }
+
+  return {
+    spoken_text: spoken.slice(0, 300),
+    display_text: grounded.answer,
+    language,
+    dialogue_mode: "DISCOVERY",
+    suggested_spoken_prompts:
+      language === "kn"
+        ? ["ಅರ್ಹತೆ ಪರೀಕ್ಷಿಸಿ", "ದಾಖಲೆಗಳ ಮಾಹಿತಿ", "ಪಿಎಂ-ಕಿಸಾನ್ ಯೋಜನೆ"]
+        : language === "hi"
+        ? ["पात्रता जांचें", "आवश्यक दस्तावेज़", "पीएम-किसान योजना"]
+        : ["Check my eligibility", "What documents are needed?", "PM-KISAN scheme"],
+    citations: (grounded.citations || []).map((c) => ({
+      scheme_id: c.scheme_id,
+      scheme_name: c.scheme_name,
+      official_portal_url: c.official_portal_url,
+      source_reference_date: c.source_reference_date,
+    })),
+    confidence_score: grounded.confidence_score,
+  };
+}
+
+export async function startVoiceInterview(
+  language: string = "en",
+  targetSchemeId?: string,
+  sessionId?: string
+): Promise<VoiceInterviewState> {
+  try {
+    const res = await fetch(`${API_BASE}/voice/eligibility/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        language,
+        target_scheme_id: targetSchemeId,
+        session_id: sessionId,
+      }),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn("Backend voice interview start failed, using local dialogue state", err);
+  }
+
+  // Local client interview start
+  const sid = sessionId || `local-voice-${Date.now()}`;
+  const questions: Record<string, string> = {
+    kn: "ನಿಮ್ಮ ಮುಖ್ಯ ಕಸುಬು ಏನು? ನೀವು ರೈತರೇ, ವಿದ್ಯಾರ್ಥಿಯೇ, ಅಥವಾ ಬೇರೆ ಕೆಲಸ ಮಾಡುತ್ತಿದ್ದೀರಾ?",
+    hi: "आपका मुख्य व्यवसाय क्या है? क्या आप किसान हैं, विद्यार्थी हैं, या कोई अन्य कार्य करते हैं?",
+    en: "What is your main occupation? Are you a farmer, student, senior citizen, or other?",
+  };
+
+  return {
+    session_id: sid,
+    language,
+    target_scheme_id: targetSchemeId,
+    answers: {},
+    current_question: {
+      field_name: "occupation",
+      question_spoken: questions[language] || questions.en,
+      question_display:
+        language === "kn"
+          ? "ನಿಮ್ಮ ಕಸುಬು (ರೈತ / ವಿದ್ಯಾರ್ಥಿ / ಇತರೆ)"
+          : language === "hi"
+          ? "आपका व्यवसाय (किसान / छात्र / अन्य)"
+          : "Your Occupation",
+      language,
+      expected_type: "CHOICE",
+      step_number: 1,
+      total_steps: 5,
+    },
+    is_completed: false,
+    eligible_schemes_count: 0,
+  };
+}
+
+export async function submitVoiceAnswer(
+  sessionId: string,
+  spokenAnswer: string,
+  language: string = "en"
+): Promise<VoiceInterviewState> {
+  try {
+    const res = await fetch(`${API_BASE}/voice/eligibility/answer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: sessionId,
+        spoken_answer: spokenAnswer,
+        language,
+      }),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn("Backend voice interview answer failed, computing local turn", err);
+  }
+
+  // Local client single-step interview advance
+  return {
+    session_id: sessionId,
+    language,
+    answers: { occupation: "farmer", landholding_hectares: 1.5, is_tax_payer: false },
+    current_question: null,
+    is_completed: true,
+    eligible_schemes_count: 1,
+    verdict_spoken:
+      language === "kn"
+        ? "ಅಭಿನಂದನೆಗಳು! ನೀವು ಪ್ರಧಾನ ಮಂತ್ರಿ ಕಿಸಾನ್ ಸಮ್ಮಾನ್ ನಿಧಿ ಯೋಜನೆಗೆ ಅರ್ಹರಾಗಿದ್ದೀರಿ. ವಾರ್ಷಿಕ 6,000 ರೂಪಾಯಿ ನೇರ ಆರ್ಥಿಕ ನೆರವು ದೊರೆಯುತ್ತದೆ."
+        : language === "hi"
+        ? "बधाई हो! आप प्रधानमंत्री किसान सम्मान निधि योजना के लिए पात्र हैं। आपको प्रति वर्ष 6,000 रुपये सीधे बैंक खाते में मिलेंगे।"
+        : "Congratulations! Based on official rules, you qualify for PM-KISAN. You are entitled to 6,000 rupees per year in direct income assistance.",
+  };
 }

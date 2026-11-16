@@ -18,6 +18,7 @@ import {
   HeartPulse,
   Sprout,
   ArrowRight,
+  Mic,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -87,7 +88,20 @@ export default function HomePage() {
           </form>
 
           {/* Primary Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 pt-2">
+            <Link
+              href="/voice"
+              className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg shadow-md transition-all flex items-center justify-center space-x-2 text-sm sm:text-base"
+            >
+              <Mic className="w-5 h-5 text-amber-100 animate-pulse" />
+              <span>
+                {locale === "kn"
+                  ? "ಧ್ವನಿ ಮೂಲಕ ಮಾತನಾಡಿ"
+                  : locale === "hi"
+                  ? "बोलकर पूछें (आवाज़)"
+                  : "Speak with Voice AI"}
+              </span>
+            </Link>
             <Link
               href="/wizard"
               className="px-6 py-3 bg-gov-green hover:bg-emerald-700 text-white font-bold rounded-lg shadow-md transition-all flex items-center justify-center space-x-2 text-sm sm:text-base"

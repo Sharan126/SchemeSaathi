@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { Locale } from "@/types";
-import { ShieldCheck, Globe, Menu, X, CheckCircle2 } from "lucide-react";
+import { ShieldCheck, Globe, Menu, X, CheckCircle2, Mic } from "lucide-react";
 
 export function Navbar() {
   const { locale, setLocale, t } = useLanguage();
@@ -16,6 +16,7 @@ export function Navbar() {
     { href: "/", label: t("nav.home") },
     { href: "/schemes", label: t("nav.schemes") },
     { href: "/wizard", label: t("nav.wizard") },
+    { href: "/voice", label: locale === "kn" ? "ಧ್ವನಿ ಸಹಾಯಕ (Voice)" : locale === "hi" ? "आवाज़ सहायक (Voice)" : "Voice Assistant", badge: "Live" },
     { href: "/assistant", label: t("nav.assistant") },
     { href: "/documents", label: t("nav.documents") },
     { href: "/admin", label: t("nav.admin") },
@@ -92,8 +93,19 @@ export function Navbar() {
           })}
         </div>
 
-        {/* Quick Action Button & Mobile Toggle */}
+        {/* Quick Action Buttons & Mobile Toggle */}
         <div className="flex items-center space-x-2">
+          <Link
+            href="/voice"
+            className="inline-flex items-center space-x-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-sm transition-all"
+            title="Spoken Multilingual Assistant"
+          >
+            <Mic className="w-4 h-4 text-amber-100 animate-pulse" />
+            <span className="hidden sm:inline">
+              {locale === "kn" ? "ಧ್ವನಿ ಸಹಾಯಕ" : locale === "hi" ? "बोलकर पूछें" : "Voice AI"}
+            </span>
+          </Link>
+
           <Link
             href="/wizard"
             className="hidden sm:inline-flex items-center space-x-1.5 px-3.5 py-2 bg-gov-green hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-sm transition-all"
