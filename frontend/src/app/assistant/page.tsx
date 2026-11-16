@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
 import { askAssistant } from "@/lib/api";
 import { GroundedAnswerResponse, Citation } from "@/types";
@@ -13,13 +12,6 @@ import {
   HelpCircle,
   AlertCircle,
   FileCheck2,
-  Copy,
-  Check,
-  ThumbsUp,
-  ThumbsDown,
-  Trash2,
-  ArrowRight,
-  CheckCircle2,
 } from "lucide-react";
 
 export default function AssistantPage() {
@@ -27,9 +19,8 @@ export default function AssistantPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversation, setConversation] = useState<
-    { query: string; response: GroundedAnswerResponse; feedback?: "helpful" | "unhelpful" }[]
+    { query: string; response: GroundedAnswerResponse }[]
   >([]);
-  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   const sampleQuestions = [
     {
@@ -81,6 +72,7 @@ export default function AssistantPage() {
             is_grounded: false,
             confidence_score: 0.0,
             citations: [],
+            retrieved_chunks: [],
           },
         },
       ]);
@@ -90,44 +82,24 @@ export default function AssistantPage() {
     }
   };
 
-  const copyResponse = async (text: string, index: number) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedIdx(index);
-      setTimeout(() => setCopiedIdx(null), 2500);
-    } catch {
-      // Clipboard fallback
-    }
-  };
-
-  const handleFeedback = (index: number, type: "helpful" | "unhelpful") => {
-    setConversation((prev) =>
-      prev.map((c, i) => (i === index ? { ...c, feedback: type } : c))
-    );
-  };
-
-  const clearChat = () => {
-    setConversation([]);
-  };
-
   return (
-    <div className="max-w-4xl mx-auto space-y-6 py-2">
+    <div className="max-w-4xl mx-auto space-y-8 py-2">
       {/* Header */}
-      <div className="space-y-1.5 text-center">
-        <div className="inline-flex items-center space-x-1.5 bg-slate-100 text-slate-700 px-3 py-0.5 rounded text-xs font-semibold border border-slate-200">
-          <Sparkles className="w-3.5 h-3.5 text-civic" />
-          <span>Grounded RAG Engine • Ministry Gazette Evidence</span>
+      <div className="space-y-3 text-center">
+        <div className="inline-flex items-center space-x-1.5 bg-blue-50 text-blue-900 border border-blue-200 px-3.5 py-1 rounded-full text-xs font-semibold">
+          <Sparkles className="w-4 h-4 text-gov-blue" />
+          <span>Grounded RAG Engine • Zero Hallucinations</span>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F1E36] tracking-tight">
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
           {t("assistant.title")}
         </h1>
-        <p className="text-xs sm:text-sm text-slate-600 max-w-xl mx-auto leading-relaxed">
+        <p className="text-sm text-slate-600 max-w-xl mx-auto">
           {t("assistant.subtitle")}
         </p>
       </div>
 
       {/* Safety Notice Banner */}
-      <div className="bg-[#FAFBFD] border border-hairline rounded p-3.5 text-xs text-slate-700 flex items-start space-x-2.5 shadow-hairline">
+      <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-4 text-xs text-amber-900 flex items-start space-x-2.5">
         <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
         <p className="leading-relaxed">
           {t("assistant.disclaimer")}
@@ -136,21 +108,9 @@ export default function AssistantPage() {
 
       {/* Suggested Questions */}
       <div className="space-y-2">
-        <div className="flex justify-between items-center text-xs">
-          <span className="font-bold text-slate-500 uppercase tracking-wider block text-[10px]">
-            {t("assistant.suggested_questions")}
-          </span>
-          {conversation.length > 0 && (
-            <button
-              onClick={clearChat}
-              className="text-xs text-slate-500 hover:text-red-700 inline-flex items-center space-x-1 cursor-pointer font-semibold"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>{t("assistant.clear_chat")}</span>
-            </button>
-          )}
-        </div>
-
+        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+          {t("assistant.suggested_questions")}
+        </span>
         <div className="flex flex-wrap gap-2">
           {sampleQuestions.map((item, idx) => {
             const prompt = (item as any)[locale] || item.en;
@@ -159,7 +119,7 @@ export default function AssistantPage() {
                 key={idx}
                 onClick={() => handleAsk(prompt)}
                 disabled={loading}
-                className="text-xs bg-white hover:bg-slate-50 text-slate-800 border border-hairline px-3 py-1.5 rounded transition-all text-left cursor-pointer disabled:opacity-50 shadow-hairline font-medium"
+                className="text-xs bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-900 border border-slate-200 hover:border-blue-300 px-3 py-1.5 rounded-lg transition-colors text-left cursor-pointer disabled:opacity-50"
               >
                 {prompt}
               </button>
@@ -171,128 +131,59 @@ export default function AssistantPage() {
       {/* Conversation Thread */}
       <div className="space-y-6">
         {conversation.map((entry, idx) => (
-          <div key={idx} className="space-y-3">
+          <div key={idx} className="space-y-4">
             {/* Citizen Query */}
             <div className="flex justify-end">
-              <div className="bg-[#0F1E36] text-white px-4 py-2.5 rounded text-xs sm:text-sm shadow-hairline leading-relaxed max-w-lg">
+              <div className="bg-gov-navy text-white px-4 py-2.5 rounded-2xl rounded-tr-sm max-w-lg text-sm shadow-sm">
                 {entry.query}
               </div>
             </div>
 
             {/* Grounded Assistant Answer */}
             <div className="flex justify-start">
-              <div className="bg-white border border-hairline rounded p-5 max-w-2xl text-xs sm:text-sm shadow-hairline space-y-4">
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-500 pb-2 border-b border-hairline">
-                  <div className="flex items-center space-x-2">
-                    <ShieldCheck className="w-4 h-4 text-forest" />
-                    <span className="text-[#0F1E36] font-bold">SchemeSaathi Grounded Evidence</span>
-                    {entry.response.is_grounded && (
-                      <span className="bg-emerald-50 text-forest text-[10px] px-2 py-0.2 rounded font-bold border border-emerald-200">
-                        Evidence Grounded
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => copyResponse(entry.response.answer, idx)}
-                      className="text-slate-500 hover:text-[#0F1E36] inline-flex items-center space-x-1 cursor-pointer text-xs"
-                      title={t("assistant.copy_btn")}
-                    >
-                      {copiedIdx === idx ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-forest" />
-                          <span className="text-forest text-[11px] font-bold">{t("assistant.copied_btn")}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          <span className="text-[11px] font-medium">{t("assistant.copy_btn")}</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
+              <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-6 max-w-2xl text-sm shadow-sm space-y-4">
+                <div className="flex items-center space-x-2 text-xs font-semibold text-slate-500 pb-2 border-b border-slate-100">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>SchemeSaathi Grounded Evidence</span>
+                  {entry.response.is_grounded && (
+                    <span className="bg-emerald-50 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                      Confidence 95%
+                    </span>
+                  )}
                 </div>
 
-                <div className="text-slate-800 leading-relaxed whitespace-pre-line text-xs sm:text-sm">
+                <div className="text-slate-800 leading-relaxed whitespace-pre-line text-sm">
                   {entry.response.answer}
                 </div>
 
                 {/* Citations Box */}
                 {entry.response.citations?.length > 0 && (
-                  <div className="bg-[#FAFBFD] border border-hairline rounded p-3.5 space-y-2 mt-3">
-                    <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wide flex items-center space-x-1">
-                      <FileCheck2 className="w-3.5 h-3.5 text-civic" />
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2 mt-4">
+                    <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide flex items-center space-x-1">
+                      <FileCheck2 className="w-3.5 h-3.5 text-blue-600" />
                       <span>{t("assistant.citations_label")}</span>
                     </span>
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       {entry.response.citations.map((cite: Citation, cIdx: number) => (
-                        <div key={cIdx} className="text-xs text-slate-600 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1.5 pt-1 border-t border-hairline first:border-t-0 first:pt-0">
+                        <div key={cIdx} className="text-xs text-slate-600 flex justify-between items-center gap-2">
                           <div className="truncate">
-                            <span className="font-bold text-[#0F1E36]">{cite.scheme_name}</span>
-                            <span className="text-slate-500 font-mono text-[11px]"> • {cite.section_title} (Ref: {cite.source_reference_date})</span>
+                            <span className="font-semibold text-slate-800">{cite.scheme_name}</span>
+                            <span className="text-slate-400"> • {cite.section_title} (Ref: {cite.source_reference_date})</span>
                           </div>
-                          <div className="flex items-center space-x-2 shrink-0">
-                            {cite.scheme_id && (
-                              <Link
-                                href={`/schemes/${cite.scheme_id}`}
-                                className="text-civic hover:underline inline-flex items-center space-x-0.5 font-bold"
-                              >
-                                <span>{t("assistant.scheme_link_label")}</span>
-                                <ArrowRight className="w-3 h-3" />
-                              </Link>
-                            )}
-                            <a
-                              href={cite.official_portal_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-slate-500 hover:text-slate-800 inline-flex items-center space-x-0.5 font-medium ml-1"
-                            >
-                              <span>Official Gazette</span>
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          </div>
+                          <a
+                            href={cite.official_portal_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-gov-blue hover:underline inline-flex items-center space-x-0.5 font-medium shrink-0"
+                          >
+                            <span>Verify Source</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
-
-                {/* Response Feedback & Action Buttons */}
-                <div className="pt-2 border-t border-hairline flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs">
-                  <div className="flex items-center space-x-2 text-slate-500">
-                    <span>Was this helpful?</span>
-                    <button
-                      onClick={() => handleFeedback(idx, "helpful")}
-                      className={`p-1 rounded hover:bg-slate-100 cursor-pointer ${
-                        entry.feedback === "helpful" ? "text-forest font-bold" : "text-slate-400"
-                      }`}
-                    >
-                      <ThumbsUp className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleFeedback(idx, "unhelpful")}
-                      className={`p-1 rounded hover:bg-slate-100 cursor-pointer ${
-                        entry.feedback === "unhelpful" ? "text-amber-700 font-bold" : "text-slate-400"
-                      }`}
-                    >
-                      <ThumbsDown className="w-3.5 h-3.5" />
-                    </button>
-                    {entry.feedback && (
-                      <span className="text-[11px] text-forest italic font-semibold">
-                        {t("assistant.feedback_recorded")}
-                      </span>
-                    )}
-                  </div>
-
-                  <Link
-                    href="/wizard"
-                    className="inline-flex items-center space-x-1 font-bold text-civic hover:underline"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Check Eligibility for these Schemes</span>
-                  </Link>
-                </div>
               </div>
             </div>
           </div>
@@ -300,9 +191,9 @@ export default function AssistantPage() {
 
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-white border border-hairline rounded p-4 flex items-center space-x-3 text-xs text-slate-500 shadow-hairline">
-              <div className="w-4 h-4 border-2 border-[#0F1E36] border-t-transparent rounded-full animate-spin" />
-              <span>Retrieving verified official circular chunks and synthesizing grounded response...</span>
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center space-x-3 text-xs text-slate-500">
+              <div className="w-4 h-4 border-2 border-gov-blue border-t-transparent rounded-full animate-spin" />
+              <span>Retrieving official scheme chunks and synthesizing verified answer...</span>
             </div>
           </div>
         )}
@@ -314,19 +205,19 @@ export default function AssistantPage() {
           e.preventDefault();
           handleAsk(query);
         }}
-        className="sticky bottom-4 bg-white p-2 rounded border border-slate-300 shadow-panel flex items-center space-x-2"
+        className="sticky bottom-4 bg-white p-2 rounded-2xl border border-slate-300 shadow-xl flex items-center space-x-2"
       >
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("assistant.input_placeholder")}
-          className="flex-1 px-3 py-2 text-xs sm:text-sm text-[#0F1E36] focus:outline-none bg-transparent"
+          className="flex-1 px-4 py-2 text-sm text-slate-900 focus:outline-none bg-transparent"
         />
         <button
           type="submit"
           disabled={loading || !query.trim()}
-          className="px-4 py-2 bg-[#0F1E36] hover:bg-[#162842] disabled:opacity-50 text-white rounded text-xs font-bold flex items-center space-x-1.5 shadow-hairline transition-colors cursor-pointer shrink-0"
+          className="px-5 py-2.5 bg-gov-blue hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer"
         >
           <span>{t("assistant.send_btn")}</span>
           <Send className="w-3.5 h-3.5" />

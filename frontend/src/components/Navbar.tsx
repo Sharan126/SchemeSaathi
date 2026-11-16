@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { Locale } from "@/types";
-import { ShieldCheck, Globe, Menu, X, CheckCircle2, ArrowRight } from "lucide-react";
+import { ShieldCheck, Globe, Menu, X, CheckCircle2 } from "lucide-react";
 
 export function Navbar() {
   const { locale, setLocale, t } = useLanguage();
@@ -26,84 +26,64 @@ export function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-hairline shadow-hairline">
-      {/* 1. Official National Tricolor Hairline Accent */}
-      <div className="h-1 w-full bg-gradient-to-r from-[#FF9933] via-white to-[#138808]" />
+    <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
+      {/* Top Tricolor Banner */}
+      <div className="h-1.5 w-full bg-gradient-to-r from-orange-500 via-white to-green-600" />
 
-      {/* 2. Top Administrative Transparency Bar */}
-      <div className="bg-[#0F1E36] text-slate-300 text-[11px] py-1 px-4 sm:px-8 flex justify-between items-center font-medium">
+      {/* Official Government Top Bar */}
+      <div className="bg-slate-900 text-slate-300 text-xs py-1 px-4 sm:px-8 flex justify-between items-center">
         <div className="flex items-center space-x-2">
-          <span className="text-[#FF9933] font-bold">🇮🇳</span>
-          <span className="tracking-wide">
-            {locale === "hi"
-              ? "भारत सरकार • राष्ट्रीय कल्याणकारी सूचना एवं आवेदन तत्परता मंच"
-              : locale === "kn"
-              ? "ಭಾರತ ಸರ್ಕಾರ • ರಾಷ್ಟ್ರೀಯ ಕಲ್ಯಾಣ ಮಾಹಿತಿ ಮತ್ತು ಅರ್ಜಿ ಸನ್ನದ್ಧತಾ ವೇದಿಕೆ"
-              : "Government of India • National Welfare Discovery & Readiness Platform"}
-          </span>
+          <ShieldCheck className="w-3.5 h-3.5 text-orange-400" />
+          <span>{t("brand.gov_portal")}</span>
         </div>
-
-        <div className="flex items-center space-x-4">
-          <span className="hidden md:inline text-slate-400 font-mono text-[10px]">
-            GAZETTE-GROUNDED • ZERO PII
-          </span>
-
-          {/* Language Switcher */}
-          <div className="flex items-center space-x-1.5 bg-[#162842] px-2.5 py-0.5 rounded border border-slate-700">
+        <div className="flex items-center space-x-3">
+          <span className="hidden sm:inline text-slate-400">Deterministic & Verified</span>
+          <div className="flex items-center space-x-1 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
             <Globe className="w-3 h-3 text-slate-400" />
             <select
               value={locale}
               onChange={handleLocaleChange}
               aria-label="Language selection"
-              className="bg-transparent text-white text-[11px] font-semibold cursor-pointer focus:outline-none"
+              className="bg-transparent text-white text-xs font-medium cursor-pointer focus:outline-none"
             >
-              <option value="en" className="bg-[#0F1E36] text-white">English</option>
-              <option value="hi" className="bg-[#0F1E36] text-white">हिन्दी (Hindi)</option>
-              <option value="kn" className="bg-[#0F1E36] text-white">ಕನ್ನಡ (Kannada)</option>
+              <option value="en" className="bg-slate-900 text-white">English</option>
+              <option value="hi" className="bg-slate-900 text-white">हिन्दी (Hindi)</option>
+              <option value="kn" className="bg-slate-900 text-white">ಕನ್ನಡ (Kannada)</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* 3. Main Navigation Bar */}
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        {/* Brand Identity Seal */}
+      {/* Main Navbar */}
+      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+        {/* Logo */}
         <Link href="/" className="flex items-center space-x-3 group">
-          <div className="w-9 h-9 rounded bg-[#0F1E36] text-white flex items-center justify-center font-bold text-base border-b-2 border-terracotta shadow-sm shrink-0">
-            <span className="text-[#FF9933] font-serif">य</span>
-            <span className="text-emerald-400 font-sans ml-0.5">S</span>
+          <div className="w-10 h-10 rounded-lg bg-gov-navy text-white flex items-center justify-center font-bold text-xl shadow-md border-2 border-orange-500">
+            <span className="text-orange-400">य</span>
+            <span className="text-green-400">S</span>
           </div>
           <div>
-            <div className="flex items-center space-x-1.5">
-              <span className="text-lg font-extrabold tracking-tight text-[#0F1E36] group-hover:text-civic transition-colors">
-                {t("brand.name")}
-              </span>
-              <span className="text-[10px] uppercase font-bold text-forest bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                Official Data
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-500 font-medium hidden sm:block leading-none mt-0.5">
-              {locale === "hi"
-                ? "सरकारी योजना खोज एवं आवेदन तैयारी मंच"
-                : locale === "kn"
-                ? "ಸರ್ಕಾರಿ ಯೋಜನೆಗಳ ಅನ್ವೇಷಣೆ ಮತ್ತು ಅರ್ಜಿ ಸನ್ನದ್ಧತೆ"
-                : "Public Welfare Scheme Discovery & Application Readiness"}
+            <span className="text-xl font-bold tracking-tight text-slate-900 group-hover:text-gov-blue transition-colors">
+              {t("brand.name")}
+            </span>
+            <p className="text-xs text-slate-500 hidden sm:block">
+              {locale === "hi" ? "योजना साथी - भारत सरकार" : locale === "kn" ? "ಯೋಜನೆ ಸಾಥಿ - ಭಾರತ ಸರ್ಕಾರ" : "Government Scheme Assistant"}
             </p>
           </div>
         </Link>
 
-        {/* Desktop Nav Items (Editorial Bottom-Border Ink Marker) */}
-        <div className="hidden md:flex items-center h-full space-x-1 lg:space-x-2">
+        {/* Desktop Nav Items */}
+        <div className="hidden md:flex items-center space-x-1 lg:space-x-2">
           {navLinks.map((item) => {
             const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`h-full flex items-center px-3 text-xs lg:text-sm font-semibold transition-colors border-b-2 ${
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   isActive
-                    ? "border-[#0F1E36] text-[#0F1E36] font-bold"
-                    : "border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300"
+                    ? "bg-slate-100 text-gov-blue font-semibold"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                 }`}
               >
                 {item.label}
@@ -112,60 +92,46 @@ export function Navbar() {
           })}
         </div>
 
-        {/* Primary CTA & Mobile Hamburger */}
-        <div className="flex items-center space-x-3">
+        {/* Quick Action Button & Mobile Toggle */}
+        <div className="flex items-center space-x-2">
           <Link
             href="/wizard"
-            className="hidden sm:inline-flex items-center space-x-1.5 px-4 py-2 bg-terracotta hover:bg-[#98380A] text-white text-xs font-bold rounded shadow-hairline transition-all cursor-pointer"
+            className="hidden sm:inline-flex items-center space-x-1.5 px-3.5 py-2 bg-gov-green hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-sm transition-all"
           >
-            <CheckCircle2 className="w-3.5 h-3.5 text-orange-200" />
-            <span>{locale === "hi" ? "पात्रता जांचें" : locale === "kn" ? "ಅರ್ಹತೆ ಪರಿಶೀಲಿಸಿ" : "Check Eligibility"}</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+            <span>{t("nav.wizard")}</span>
           </Link>
 
-          {/* Mobile Menu Button */}
           <button
-            type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle navigation menu"
-            className="md:hidden p-2 text-slate-700 hover:text-slate-900 focus:outline-none rounded"
+            className="md:hidden p-2 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+            aria-label="Toggle Navigation Menu"
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
       </nav>
 
-      {/* 4. Mobile Drawer View */}
+      {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-hairline bg-white px-4 py-4 space-y-2 shadow-panel">
+        <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-2 pb-4 space-y-1 shadow-lg">
           {navLinks.map((item) => {
-            const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+            const isActive = pathname === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`block px-3 py-2.5 rounded text-sm font-semibold transition-colors min-h-[44px] flex items-center justify-between ${
+                className={`block px-3 py-2.5 rounded-md text-base font-medium ${
                   isActive
-                    ? "bg-slate-100 text-[#0F1E36] font-bold border-l-4 border-[#0F1E36]"
-                    : "text-slate-700 hover:bg-slate-50"
+                    ? "bg-blue-50 text-gov-blue font-bold"
+                    : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                 }`}
               >
-                <span>{item.label}</span>
-                <ArrowRight className="w-4 h-4 text-slate-400" />
+                {item.label}
               </Link>
             );
           })}
-
-          <div className="pt-2 border-t border-hairline">
-            <Link
-              href="/wizard"
-              onClick={() => setMobileMenuOpen(false)}
-              className="w-full flex items-center justify-center space-x-2 py-3 bg-terracotta text-white rounded text-sm font-bold min-h-[48px]"
-            >
-              <CheckCircle2 className="w-4 h-4 text-orange-200" />
-              <span>{locale === "hi" ? "मेरी पात्रता जांचें" : locale === "kn" ? "ನನ್ನ ಅರ್ಹತೆ ಪರಿಶೀಲಿಸಿ" : "Check My Eligibility"}</span>
-            </Link>
-          </div>
         </div>
       )}
     </header>

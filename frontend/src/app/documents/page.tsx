@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
 import { fetchDocumentDirectory } from "@/lib/api";
 import { DocumentDirectoryItem } from "@/types";
@@ -12,13 +11,6 @@ import {
   Search,
   CheckCircle2,
   ExternalLink,
-  ShieldCheck,
-  Check,
-  RotateCcw,
-  AlertCircle,
-  ArrowRight,
-  Filter,
-  Info,
 } from "lucide-react";
 
 export default function DocumentsPage() {
@@ -26,10 +18,6 @@ export default function DocumentsPage() {
   const [docs, setDocs] = useState<DocumentDirectoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all" | "ready" | "needed">("all");
-
-  // LocalStorage-backed Personal Checklist (Zero file uploads, stored purely on citizen's browser)
-  const [checkedDocs, setCheckedDocs] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     async function load() {
@@ -39,272 +27,98 @@ export default function DocumentsPage() {
       setLoading(false);
     }
     load();
-
-    try {
-      const saved = localStorage.getItem("schemesaathi_document_checklist");
-      if (saved) {
-        setCheckedDocs(JSON.parse(saved));
-      }
-    } catch {
-      // LocalStorage fallback for private browsing
-    }
   }, []);
-
-  const toggleDoc = (code: string) => {
-    setCheckedDocs((prev) => {
-      const updated = { ...prev, [code]: !prev[code] };
-      try {
-        localStorage.setItem("schemesaathi_document_checklist", JSON.stringify(updated));
-      } catch {}
-      return updated;
-    });
-  };
-
-  const resetChecklist = () => {
-    if (confirm("Reset your personal document checklist?")) {
-      setCheckedDocs({});
-      try {
-        localStorage.removeItem("schemesaathi_document_checklist");
-      } catch {}
-    }
-  };
 
   const filtered = docs.filter((d) => {
     const q = searchTerm.toLowerCase();
     const name = (d.name[locale] || d.name.en).toLowerCase();
     const auth = (d.authority[locale] || d.authority.en).toLowerCase();
-    const matchesSearch = name.includes(q) || auth.includes(q);
-
-    if (!matchesSearch) return false;
-
-    if (filterStatus === "ready") {
-      return !!checkedDocs[d.code];
-    } else if (filterStatus === "needed") {
-      return !checkedDocs[d.code];
-    }
-    return true;
+    return name.includes(q) || auth.includes(q);
   });
 
-  const totalDocs = docs.length;
-  const readyCount = Object.values(checkedDocs).filter(Boolean).length;
-  const progressPct = totalDocs > 0 ? Math.round((readyCount / totalDocs) * 100) : 0;
-
   return (
-    <div className="space-y-6 py-2">
+    <div className="space-y-8 py-2">
       {/* Header */}
-      <div className="space-y-1.5 border-b border-hairline pb-4">
-        <div className="inline-flex items-center space-x-1.5 bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded text-[11px] font-semibold border border-slate-200">
-          <ShieldCheck className="w-3.5 h-3.5 text-forest" />
-          <span>Statutory Document Specifications</span>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F1E36] tracking-tight">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
           {t("documents.title")}
         </h1>
-        <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
+        <p className="text-sm sm:text-base text-slate-600 max-w-2xl">
           {t("documents.subtitle")}
         </p>
       </div>
 
-      {/* Interactive Personal Checklist Progress Banner */}
-      <div className="bg-white rounded border border-hairline p-5 sm:p-6 shadow-hairline space-y-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <div className="flex items-center space-x-2">
-              <CheckCircle2 className="w-4 h-4 text-forest" />
-              <h2 className="text-sm sm:text-base font-bold text-[#0F1E36]">
-                {t("documents.checklist_title")}
-              </h2>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {t("documents.checklist_desc")}
-            </p>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            <div className="text-right">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold block">{t("documents.progress_label")}</span>
-              <span className="text-xs sm:text-sm font-bold text-[#0F1E36] num-tabular">{readyCount} of {totalDocs} Documents Ready ({progressPct}%)</span>
-            </div>
-            {readyCount > 0 && (
-              <button
-                onClick={resetChecklist}
-                className="text-xs text-slate-400 hover:text-red-700 p-1 rounded cursor-pointer"
-                title="Reset checklist"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="w-full h-2 bg-slate-100 rounded overflow-hidden">
-          <div
-            className="h-full bg-forest transition-all duration-300"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-
-        {/* Privacy Assurance Notice */}
-        <div className="bg-emerald-50/50 border border-emerald-200 rounded p-2.5 flex items-start space-x-2 text-xs text-emerald-950">
-          <ShieldCheck className="w-4 h-4 text-forest shrink-0 mt-0.5" />
-          <span>
-            {t("documents.local_storage_notice")}
-          </span>
-        </div>
-      </div>
-
-      {/* Search & Filter Bar */}
-      <div className="bg-white p-4 rounded border border-hairline shadow-hairline space-y-3">
+      {/* Search Input */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+          <Search className="w-5 h-5 absolute left-3.5 top-3.5 text-slate-400" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder={t("documents.search_placeholder")}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-hairline rounded text-xs sm:text-sm text-[#0F1E36] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F1E36] focus:bg-white"
+            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
           />
-        </div>
-
-        {/* Filter Tabs */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-hairline text-xs">
-          <div className="flex bg-slate-100 p-0.5 rounded border border-slate-200">
-            <button
-              onClick={() => setFilterStatus("all")}
-              className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer transition-colors ${
-                filterStatus === "all" ? "bg-white text-[#0F1E36] shadow-sm font-bold" : "text-slate-600"
-              }`}
-            >
-              All Documents ({docs.length})
-            </button>
-            <button
-              onClick={() => setFilterStatus("ready")}
-              className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer transition-colors ${
-                filterStatus === "ready" ? "bg-white text-forest shadow-sm font-bold" : "text-slate-600"
-              }`}
-            >
-              Ready ({readyCount})
-            </button>
-            <button
-              onClick={() => setFilterStatus("needed")}
-              className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer transition-colors ${
-                filterStatus === "needed" ? "bg-white text-amber-900 shadow-sm font-bold" : "text-slate-600"
-              }`}
-            >
-              Still Needed ({totalDocs - readyCount})
-            </button>
-          </div>
-
-          <span className="text-slate-400 font-mono text-[11px]">
-            {filtered.length} DOCUMENTS LISTED
-          </span>
         </div>
       </div>
 
       {/* Document Directory Cards */}
       {loading ? (
         <div className="py-20 text-center space-y-3">
-          <div className="w-6 h-6 border-2 border-[#0F1E36] border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xs text-slate-500">Loading document requirements...</p>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="bg-white rounded border border-hairline p-10 text-center space-y-2 shadow-hairline">
-          <p className="text-slate-800 font-bold text-sm">No documents found matching &quot;{searchTerm}&quot;</p>
-          <button
-            onClick={() => { setSearchTerm(""); setFilterStatus("all"); }}
-            className="text-xs text-civic font-bold underline cursor-pointer"
-          >
-            Clear search &amp; filters
-          </button>
+          <div className="w-8 h-8 border-4 border-gov-blue border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-slate-500">Loading document requirements...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filtered.map((doc) => {
             const name = doc.name[locale] || doc.name.en;
             const authority = doc.authority[locale] || doc.authority.en;
             const description = doc.description[locale] || doc.description.en;
-            const isReady = !!checkedDocs[doc.code];
 
             return (
               <div
                 key={doc.code}
-                className={`bg-white rounded border p-5 space-y-3 hover:shadow-panel transition-all flex flex-col justify-between ${
-                  isReady ? "border-forest/60" : "border-hairline"
-                }`}
+                className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 hover:shadow-md transition-shadow"
               >
-                <div className="space-y-3">
-                  {/* Card Header & Checkbox */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-9 h-9 rounded flex items-center justify-center font-bold shrink-0 border ${
-                        isReady ? "bg-emerald-50 text-forest border-emerald-200" : "bg-slate-100 text-[#0F1E36] border-slate-200"
-                      }`}>
-                        <FileText className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-sm sm:text-base text-[#0F1E36] leading-snug">{name}</h3>
-                        <span className="text-[10px] text-slate-400 font-mono">Code: {doc.code}</span>
-                      </div>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 text-gov-blue flex items-center justify-center font-bold">
+                      <FileText className="w-5 h-5" />
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={() => toggleDoc(doc.code)}
-                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer flex items-center space-x-1 shrink-0 ${
-                        isReady
-                          ? "bg-forest text-white shadow-hairline"
-                          : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300"
-                      }`}
-                    >
-                      {isReady ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>{t("documents.status_have")}</span>
-                        </>
-                      ) : (
-                        <span>{t("documents.status_need")}</span>
-                      )}
-                    </button>
-                  </div>
-
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    {description}
-                  </p>
-
-                  <div className="pt-2 border-t border-hairline grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
-                    <div className="flex items-start space-x-1.5">
-                      <Building className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                      <div>
-                        <span className="block text-[10px] uppercase font-semibold text-slate-400">
-                          {t("documents.authority_label")}
-                        </span>
-                        <span className="font-bold text-slate-800">{authority}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start space-x-1.5">
-                      <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                      <div>
-                        <span className="block text-[10px] uppercase font-semibold text-slate-400">
-                          {t("documents.tat_label")}
-                        </span>
-                        <span className="font-bold text-slate-800">{doc.estimated_tat_days}</span>
-                      </div>
+                    <div>
+                      <h3 className="font-bold text-base text-slate-900">{name}</h3>
+                      <span className="text-xs text-slate-400 font-mono">Code: {doc.code}</span>
                     </div>
                   </div>
+                  <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                    Official Requirement
+                  </span>
                 </div>
 
-                {/* Footer Link to Matching Schemes */}
-                <div className="pt-2.5 border-t border-hairline flex items-center justify-between text-xs">
-                  <span className="text-slate-400 text-[10px]">Statutory requirement for verification</span>
-                  <Link
-                    href={`/schemes?q=${encodeURIComponent(name.split(" ")[0])}`}
-                    className="text-civic hover:underline font-bold inline-flex items-center space-x-0.5"
-                  >
-                    <span>Find schemes requiring this</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </Link>
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                  {description}
+                </p>
+
+                <div className="pt-2 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600">
+                  <div className="flex items-start space-x-2">
+                    <Building className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="block text-[10px] uppercase font-bold text-slate-400">
+                        {t("documents.authority_label")}
+                      </span>
+                      <span className="font-semibold text-slate-800">{authority}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-2">
+                    <Clock className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="block text-[10px] uppercase font-bold text-slate-400">
+                        {t("documents.tat_label")}
+                      </span>
+                      <span className="font-semibold text-slate-800">{doc.estimated_tat_days}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             );
