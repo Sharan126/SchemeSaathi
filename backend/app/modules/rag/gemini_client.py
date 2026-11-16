@@ -84,19 +84,13 @@ class GeminiClient:
             logger.debug("GeminiClient: No API key configured. Skipping external LLM generation.")
             return None
 
-        # Check for non-Google AI Studio key format (e.g. internal auth tokens starting with AQ.)
-        if self.api_key and not self.api_key.startswith("AIza"):
-            logger.warning(
-                "GeminiClient: API key format '%s' is not a standard Google AI Studio key (must start with 'AIzaSy...'). "
-                "Skipping external API call to avoid 400 Bad Request; using deterministic grounded synthesis.",
-                mask_key(self.api_key)
-            )
-            return None
+        # Support both modern Google AI Studio keys (starting with AQ.) and legacy keys (starting with AIza)
+        clean_key = self.api_key.strip()
 
         # Normalize model identifier
-        model = self.model or "gemini-2.0-flash"
-        if "2.5" in model or "flash-lite" in model:
-            model = "gemini-2.0-flash"
+        model = (self.model or "gemini-2.5-flash").strip()
+        if model == "gemini-2.5-flash-lite":
+            model = "gemini-2.5-flash"
 
         # 0. Check Circuit Breaker
         if self.is_circuit_open():
@@ -107,7 +101,11 @@ class GeminiClient:
             )
             return None
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={clean_key}"
+        headers = {
+            "x-goog-api-key": clean_key,
+            "Content-Type": "application/json",
+        }
         payload = {
             "contents": [
                 {
@@ -120,7 +118,7 @@ class GeminiClient:
             }
         }
 
-        masked = mask_key(self.api_key)
+        masked = mask_key(clean_key)
 
         for attempt in range(1, self.max_retries + 1):
             try:
@@ -129,7 +127,7 @@ class GeminiClient:
                     model, attempt, self.max_retries, masked
                 )
                 with httpx.Client(timeout=self.timeout) as client:
-                    resp = client.post(url, json=payload)
+                    resp = client.post(url, headers=headers, json=payload)
 
                 if resp.status_code == 200:
                     data = resp.json()
@@ -139,6 +137,27 @@ class GeminiClient:
                         if parts and "text" in parts[0]:
                             self.record_success()
                             return parts[0]["text"].strip()
+                    logger.warning("GeminiClient: HTTP 200 returned but candidate content was empty.")
+                    self.record_failure()
+                    return None
+
+                elif resp.status_code == 404 and model != "gemini-1.5-flash":
+                    # If specific model is not found, fallback to standard gemini-1.5-flash
+                    logger.warning(
+                        "GeminiClient: Model %s not found (HTTP 404). Retrying with gemini-1.5-flash...",
+                        model
+                    )
+                    fallback_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={clean_key}"
+                    with httpx.Client(timeout=self.timeout) as client:
+                        resp_fallback = client.post(fallback_url, headers=headers, json=payload)
+                    if resp_fallback.status_code == 200:
+                        data = resp_fallback.json()
+                        candidates = data.get("candidates", [])
+                        if candidates and "content" in candidates[0]:
+                            parts = candidates[0]["content"].get("parts", [])
+                            if parts and "text" in parts[0]:
+                                self.record_success()
+                                return parts[0]["text"].strip()
                     logger.warning("GeminiClient: HTTP 200 returned but candidate content was empty.")
                     self.record_failure()
                     return None
