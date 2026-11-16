@@ -13,6 +13,7 @@ Implements low-literacy conversation design:
 """
 
 import re
+import time
 import logging
 from typing import Optional, List, Dict, Any, Tuple
 from app.core.config import settings
@@ -49,6 +50,7 @@ class VoiceConversationService:
         simplicity_mode: bool = False,
         speech_speed: float = 1.0,
     ) -> VoiceChatResponse:
+        start_time = time.time()
         q_norm = query.lower().strip()
         lang = language if language in ("kn", "hi", "en") else "en"
         history = conversation_history or []
@@ -87,27 +89,64 @@ class VoiceConversationService:
                 simplicity_mode=simplicity_mode
             )
 
-        # Step 4: Hybrid Scheme Search & Evidence Retrieval
+        # Step 4: Context-Aware Scheme Search & Evidence Retrieval
+        retrieval_query = query
+        if active_scheme_id:
+            scheme_record = SchemeRepository.get_by_id(active_scheme_id)
+            if scheme_record:
+                s_title = scheme_record.get("title", {}).get(lang, scheme_record.get("title", {}).get("en", active_scheme_id))
+                retrieval_query = f"{s_title} {active_scheme_id} {query}"
+
         all_chunks = SchemeRepository.get_all_chunks()
         raw_chunks = HybridSearchEngine.search(
-            query=query,
+            query=retrieval_query,
             chunks=all_chunks,
-            top_k=4,
+            top_k=6,
             category_filter=None
         )
         retrieved_chunks = [c for c in raw_chunks if c.score >= 0.02]
 
-        # Match specific scheme record if found
+        # Match specific scheme record and ensure intent-specific chunk is prioritized
         matched_scheme = None
         if active_scheme_id:
             matched_scheme = SchemeRepository.get_by_id(active_scheme_id)
+            if intent == "APPLICATION_INQUIRY":
+                app_chunk = next((c for c in all_chunks if c["scheme_id"] == active_scheme_id and c["language"] == lang and "app-steps" in c["id"]), None)
+                if app_chunk and not any(rc.chunk_id == app_chunk["id"] for rc in retrieved_chunks):
+                    retrieved_chunks.insert(0, RetrievedChunk(
+                        chunk_id=app_chunk["id"],
+                        scheme_id=app_chunk["scheme_id"],
+                        scheme_title=app_chunk["scheme_title"],
+                        section_title=app_chunk["section_title"],
+                        language=app_chunk["language"],
+                        content=app_chunk["content"],
+                        official_portal_url=app_chunk["official_portal_url"],
+                        gazette_notification_url=app_chunk.get("gazette_notification_url"),
+                        source_reference_date=app_chunk.get("source_reference_date", "2024-01-01"),
+                        score=1.0
+                    ))
+            elif intent == "DOCUMENT_INQUIRY":
+                doc_chunk = next((c for c in all_chunks if c["scheme_id"] == active_scheme_id and c["language"] == lang and "docs" in c["id"]), None)
+                if doc_chunk and not any(rc.chunk_id == doc_chunk["id"] for rc in retrieved_chunks):
+                    retrieved_chunks.insert(0, RetrievedChunk(
+                        chunk_id=doc_chunk["id"],
+                        scheme_id=doc_chunk["scheme_id"],
+                        scheme_title=doc_chunk["scheme_title"],
+                        section_title=doc_chunk["section_title"],
+                        language=doc_chunk["language"],
+                        content=doc_chunk["content"],
+                        official_portal_url=doc_chunk["official_portal_url"],
+                        gazette_notification_url=doc_chunk.get("gazette_notification_url"),
+                        source_reference_date=doc_chunk.get("source_reference_date", "2024-01-01"),
+                        score=1.0
+                    ))
         elif retrieved_chunks:
             matched_scheme = SchemeRepository.get_by_id(retrieved_chunks[0].scheme_id)
             if matched_scheme:
                 active_scheme_id = matched_scheme["id"]
 
         # Step 5: Dynamic LLM / RAG Synthesis
-        return cls._synthesize_voice_answer(
+        response = cls._synthesize_voice_answer(
             query=query,
             intent=intent,
             lang=lang,
@@ -117,6 +156,19 @@ class VoiceConversationService:
             history=history,
             simplicity_mode=simplicity_mode
         )
+
+        duration_ms = round((time.time() - start_time) * 1000, 2)
+        logger.info(
+            "VOICE_INSPECTION_AUDIT | lang=%s | scheme=%s | intent=%s | q='%s' | retrieval_q='%s' | chunks=%s | ms=%s",
+            lang,
+            active_scheme_id,
+            intent,
+            query,
+            retrieval_query,
+            [c.chunk_id for c in retrieved_chunks],
+            duration_ms
+        )
+        return response
 
     # -------------------------------------------------------------------------
     # 2. Context & Active Scheme Resolution
@@ -157,9 +209,23 @@ class VoiceConversationService:
             if sid == "divyangjan-swavlamban" and any(k in q for k in ["divyang", "disability", "ದಿವ್ಯಾಂಗ", "ಅಂಗವಿಕಲ", "विकलांग"]):
                 return s["id"]
 
-        # 3. Follow-up pronouns referencing previous turn ("What documents do I need for it?", "Am I eligible for that?")
-        follow_up_tokens = ["it", "this", "that", "this scheme", "that scheme", "ಇದು", "ಅದಕ್ಕೆ", "ಇದಕ್ಕೆ", "यह", "इस", "इसके लिए"]
-        is_follow_up = any(tok in q for tok in follow_up_tokens) or len(q.split()) <= 5
+        # 3. Follow-up inquiries or pronouns referencing previous active scheme
+        follow_up_tokens = [
+            "it", "this", "that", "this scheme", "that scheme", "one", "the first one",
+            "ಇದು", "ಅದಕ್ಕೆ", "ಇದಕ್ಕೆ", "ಮೊದಲನೆಯದು",
+            "यह", "इस", "इसके लिए", "पहला वाला"
+        ]
+        inquiry_tokens = [
+            "apply", "procedure", "process", "document", "status", "benefit", "money",
+            "rupee", "eligib", "where", "how", "list", "missing", "name",
+            "ಅರ್ಜಿ", "ವಿಧಾನ", "ದಾಖಲೆ", "ಸ್ಥಿತಿ", "ಹೇಗೆ", "ಎಲ್ಲಿ", "ಪಟ್ಟಿ", "ಹೆಸರು",
+            "आवेदन", "प्रक्रिया", "दस्तावेज", "कागजात", "स्थिति", "कैसे", "कहाँ", "सूची", "नाम"
+        ]
+        is_follow_up = (
+            any(tok in q for tok in follow_up_tokens)
+            or any(tok in q for tok in inquiry_tokens)
+            or len(q.split()) <= 10
+        )
 
         if is_follow_up and history:
             for msg in reversed(history):
@@ -268,10 +334,29 @@ class VoiceConversationService:
 
         if any(w in q for w in ["why am i not", "why not", "reason for rejection", "not eligible", "ineligible", "ಯಾಕೆ ಸಿಗಲ್ಲ", "ಅನರ್ಹ ಏಕೆ", "ಅನರ್ಹ", "ಅರ್ಹನಲ್ಲ", "ಅರ್ಹಳಲ್ಲ", "अपात्र क्यों", "क्यों नहीं", "अपात्र"]):
             return "INELIGIBILITY_REASON"
-        if any(w in q for w in ["how to apply", "where to apply", "where can i apply", "application step", "apply", "ಹೇಗೆ ಅರ್ಜಿ", "ಎಲ್ಲಿ ಅರ್ಜಿ", "ಅರ್ಜಿ ಸಲ್ಲಿಸುವುದು", "ಅರ್ಜಿ ಹೇಗೆ", "ಅರ್ಜಿ", "आवेदन कैसे", "कहाँ आवेदन", "आवेदन"]):
+
+        if any(w in q for w in [
+            "status", "check status", "track", "missing from", "name is missing", "name missing", "beneficiary list",
+            "ಸ್ಥಿತಿ", "ಪರಿಶೀಲನೆ", "ಹೆಸರು ಇಲ್ಲ", "ಹೆಸರು ಕಾಣುತ್ತಿಲ್ಲ", "ಫಲಾನುಭವಿ ಪಟ್ಟಿ", "ಪಟ್ಟಿ",
+            "स्थिति", "स्टेटस", "नाम नहीं", "नाम छूटा", "सूची में नाम", "लाभार्थी सूची"
+        ]):
+            return "STATUS_OR_MISSING_INQUIRY"
+
+        if any(w in q for w in [
+            "how to apply", "how do i apply", "where to apply", "where can i apply", "application step", "apply",
+            "application procedure", "application process", "steps to apply", "procedure",
+            "ಹೇಗೆ ಅರ್ಜಿ", "ಎಲ್ಲಿ ಅರ್ಜಿ", "ಅರ್ಜಿ ಸಲ್ಲಿಸುವುದು", "ಅರ್ಜಿ ಹೇಗೆ", "ಅರ್ಜಿ", "ವಿಧಾನ", "ಸಲ್ಲಿಸಲು", "ಹಾಕುವುದು", "ಹಂತಗಳು",
+            "आवेदन कैसे", "कहाँ आवेदन", "आवेदन", "प्रक्रिया", "तरीका", "अप्लाई"
+        ]):
             return "APPLICATION_INQUIRY"
-        if any(w in q for w in ["document", "proof", "paper", "dastavez", "ದಾಖಲೆ", "ಕಾಗದ", "ದಸ್ತಾವೇಜು", "दस्तावेज़", "कागजात"]):
+
+        if any(w in q for w in [
+            "document", "documents", "what documents", "proof", "paper", "papers", "certificate", "dastavez",
+            "ದಾಖಲೆ", "ದಾಖಲೆಗಳು", "ಯಾವ ದಾಖಲೆ", "ಕಾಗದ", "ದಸ್ತಾವೇಜು", "ಪ್ರಮಾಣ ಪತ್ರ",
+            "दस्तावेज़", "कागजात", "क्या दस्तावेज़"
+        ]):
             return "DOCUMENT_INQUIRY"
+
         first_person_tokens = ["i am", "my", "me", "ನನ್ನ", "ನಾನು", "ನನಗೆ", "मैं", "मेरी", "मेरे", "मुझे", "मुझको"]
         has_first_person = any(tok in q for tok in first_person_tokens)
         eligibility_tokens = [
@@ -283,8 +368,14 @@ class VoiceConversationService:
         if any(w in q for w in eligibility_tokens) and (has_first_person or profile):
             return "PROFILE_ELIGIBILITY"
 
-        if any(w in q for w in ["money", "cash", "amount", "benefit", "coverage", "cover", "ಎಷ್ಟು ಹಣ", "ಲಾಭ", "ವಿಮೆ", "कितना पैसा", "लाभ", "रुपये"]):
+        if any(w in q for w in [
+            "money", "cash", "amount", "benefit", "benefits", "assistance", "how much", "how much assistance",
+            "coverage", "cover", "installments",
+            "ಎಷ್ಟು ಹಣ", "ಎಷ್ಟು ನೆರವು", "ಲಾಭ", "ವಿಮೆ", "ಸಹಾಯಧನ",
+            "कितना पैसा", "कितनी सहायता", "लाभ", "रुपये", "राशि"
+        ]):
             return "BENEFIT_INQUIRY"
+
         if any(w in q for w in ["similar scheme", "other scheme", "compare", "ಯಾವುದಾದರೂ ಇತರ", "ಇನ್ನಿತರ ಯೋಜನೆ", "अन्य योजनाएं", "जैसी दूसरी योजना"]):
             return "COMPARISON"
 
@@ -483,7 +574,7 @@ class VoiceConversationService:
                 target_lang_name = lang_names.get(lang, "English")
 
                 context_blocks = []
-                for idx, c in enumerate(chunks[:3], 1):
+                for idx, c in enumerate(chunks[:5], 1):
                     scheme_t = c.scheme_title.get(lang, c.scheme_title.get("en", c.scheme_id))
                     context_blocks.append(f"--- Document {idx}: {scheme_t} ({c.section_title}) ---\n{c.content}")
                 context_str = "\n\n".join(context_blocks)
@@ -499,14 +590,21 @@ class VoiceConversationService:
                     f"{history_context}"
                     f"VERIFIED OFFICIAL EXCERPTS:\n{context_str}\n\n"
                     f"INSTRUCTIONS FOR VOICE GENERATION:\n"
-                    f"1. Generate exactly TWO fields separated by '===DISPLAY_TEXT===':\n"
+                    f"1. QUESTION UNDERSTANDING & CONTEXTUAL REASONING:\n"
+                    f"   - Identify the citizen's specific new question ('{query}').\n"
+                    f"   - If they ask about APPLICATION STEPS (how/where to apply, procedure), explain the exact steps and portal/centres from the excerpts.\n"
+                    f"   - If they ask about DOCUMENTS, list the mandatory documents from the excerpts.\n"
+                    f"   - If they ask about BENEFITS or ASSISTANCE, explain the financial/medical benefits from the excerpts.\n"
+                    f"   - If they ask about STATUS or MISSING BENEFICIARY LIST, explain the tracking and nodal officer grievance process.\n"
+                    f"   - DO NOT repeat the general scheme introduction or annual assistance if they are asking a specific follow-up question.\n"
+                    f"2. Generate exactly TWO fields separated by '===DISPLAY_TEXT===':\n"
                     f"   Field 1 (SPOKEN_TEXT): Exactly 1 to 3 short, warm, natural spoken sentences in {target_lang_name}.\n"
                     f"   - Must answer the citizen's specific question directly.\n"
                     f"   - NEVER read raw website URLs aloud (say 'visit your local CSC, Grama One, or official portal').\n"
                     f"   - Say currency numbers as words (e.g. 6 thousand rupees / 6 ಸಾವಿರ ರೂಪಾಯಿ / 6 हजार रुपये).\n"
                     f"   - Avoid bureaucratic jargon; speak clearly for citizens with limited literacy.\n"
                     f"   Field 2 (DISPLAY_TEXT): Clean, well-structured visual explanation for the phone screen with bullet points and key facts.\n"
-                    f"2. Answer ONLY using the verified official excerpts. If information is missing, clearly explain the limitation.\n\n"
+                    f"3. Answer ONLY using the verified official excerpts. If information is missing, clearly explain the limitation.\n\n"
                     f"RESPONSE FORMAT:\n"
                     f"SPOKEN_TEXT in {target_lang_name}\n"
                     f"===DISPLAY_TEXT===\n"
@@ -587,40 +685,69 @@ class VoiceConversationService:
                 amt = benefits[0].get("amount_description", {}).get(lang, benefits[0].get("amount_description", {}).get("en", "Direct financial support")) if benefits else "Financial assistance"
                 if lang == "kn":
                     spoken = f"{title} ಯೋಜನೆಯಡಿ ಅರ್ಹ ಫಲಾನುಭವಿಗಳಿಗೆ {amt} ಸಿಗುತ್ತದೆ. ನಿಮ್ಮ ಅರ್ಹತೆ ಪರೀಕ್ಷಿಸಲು ಬಯಸುವಿರಾ?"
-                    display = f"ಪ್ರಯೋಜನಗಳು: {amt}.\n\nಅರ್ಜಿ ಸಲ್ಲಿಸಲು ಗ್ರಾಮ ಒನ್ ಅಥವಾ ಅಧಿಕೃತ ಪೋರ್ಟಲ್ ವೀಕ್ಷಿಸಿ."
+                    display = f"ಆರ್ಥಿಕ ಸೌಲಭ್ಯಗಳು ({title}):\n• {amt}\n\nಅಧಿಕೃತ ಪೋರ್ಟಲ್: {portal}\nಅರ್ಜಿ ಸಲ್ಲಿಸಲು ಹತ್ತಿರದ ಗ್ರಾಮ ಒನ್ ಅಥವಾ ಸಿಎಸ್‌ಸಿ ಕೇಂದ್ರಕ್ಕೆ ಭೇಟಿ ನೀಡಿ."
                 elif lang == "hi":
                     spoken = f"{title} के अंतर्गत पात्र नागरिकों को {amt} का प्रत्यक्ष लाभ दिया जाता है। क्या आप अपनी पात्रता जांचना चाहते हैं?"
-                    display = f"वित्तीय लाभ: {amt}।\n\nआवेदन के लिए नजदीकी सीएससी या आधिकारिक पोर्टल पर जाएं।"
+                    display = f"वित्तीय सहायता एवं लाभ ({title}):\n• {amt}\n\nआधिकारिक पोर्टल: {portal}\nआवेदन के लिए नजदीकी सीएससी या आधिकारिक पोर्टल देखें।"
                 else:
                     spoken = f"Under {title}, eligible beneficiaries receive {amt}. Would you like to check if you qualify?"
-                    display = f"Entitlement: {amt}.\n\nVisit your nearest Common Service Centre or official portal to apply."
+                    display = f"Financial Entitlements ({title}):\n• {amt}\n\nOfficial Portal: {portal}\nVisit your nearest Common Service Centre or official portal to apply."
 
             elif intent == "DOCUMENT_INQUIRY":
                 docs = scheme.get("documents", [])
-                doc_names = [d.get("document_name", {}).get(lang, d.get("document_name", {}).get("en", d.get("document_code", ""))) for d in docs[:3]]
-                joined = ", ".join(doc_names) if doc_names else "Aadhaar Card and Bank Passbook"
+                doc_names = [d.get("document_name", {}).get(lang, d.get("document_name", {}).get("en", d.get("document_code", ""))) for d in docs]
+                joined = ", ".join(doc_names[:3]) if doc_names else "Aadhaar Card and Bank Passbook"
                 if lang == "kn":
                     spoken = f"{title} ಯೋಜನೆಗೆ ಮುಖ್ಯವಾಗಿ {joined} ಅಗತ್ಯವಿದೆ. ಈ ದಾಖಲೆಗಳು ನಿಮ್ಮ ಬಳಿ ಇವೆಯೇ?"
-                    display = f"ಅಗತ್ಯ ದಾಖಲೆಗಳು:\n" + "\n".join([f"• {d}" for d in doc_names])
+                    display = f"ಕಡ್ಡಾಯ ಪರಿಶೀಲನಾ ದಾಖಲೆಗಳು ({title}):\n" + "\n".join([f"• {d}" for d in doc_names]) + f"\n\nಅಧಿಕೃತ ಪೋರ್ಟಲ್: {portal}"
                 elif lang == "hi":
                     spoken = f"{title} के लिए मुख्य रूप से {joined} की आवश्यकता होती है। क्या ये आपके पास उपलब्ध हैं?"
-                    display = f"आवश्यक दस्तावेज़:\n" + "\n".join([f"• {d}" for d in doc_names])
+                    display = f"आवश्यक आधिकारिक दस्तावेज़ ({title}):\n" + "\n".join([f"• {d}" for d in doc_names]) + f"\n\nआधिकारिक पोर्टल: {portal}"
                 else:
                     spoken = f"For {title}, the primary verified documents needed are {joined}. Do you have these ready?"
-                    display = f"Mandatory Verification Documents:\n" + "\n".join([f"• {d}" for d in doc_names])
+                    display = f"Mandatory Verification Documents ({title}):\n" + "\n".join([f"• {d}" for d in doc_names]) + f"\n\nOfficial Portal: {portal}"
 
             elif intent == "APPLICATION_INQUIRY":
                 steps = scheme.get("application_steps", [])
-                s1 = steps[0].get(lang, steps[0].get("en", "Submit application with verified documents")) if steps else "Visit your local centre"
+                step_texts = [st.get(lang, st.get("en", "")) for st in steps if st.get(lang, st.get("en", ""))]
                 if lang == "kn":
-                    spoken = f"ನೀವು ನಿಮ್ಮ ಹತ್ತಿರದ ಗ್ರಾಮ ಒನ್ ಅಥವಾ ಸಿಎಸ್ಸಿ ಕೇಂದ್ರದಲ್ಲಿ ಸುಲಭವಾಗಿ ಅರ್ಜಿ ಸಲ್ಲಿಸಬಹುದು. ಮೊದಲ ಹಂತ: {s1}."
-                    display = f"ಅರ್ಜಿ ಪ್ರಕ್ರಿಯೆ:\n• ಗ್ರಾಮ ಒನ್ / ಸಿಎಸ್‌ಸಿ ಕೇಂದ್ರ ಅಥವಾ ಅಧಿಕೃತ ಪೋರ್ಟಲ್.\n• ಹಂತ 1: {s1}."
+                    if step_texts:
+                        s1 = step_texts[0]
+                        s2 = step_texts[1] if len(step_texts) > 1 else "ದಾಖಲೆಗಳನ್ನು ಸಲ್ಲಿಸಿ"
+                        spoken = f"{title} ಯೋಜನೆಗೆ ಅರ್ಜಿ ಸಲ್ಲಿಸಲು: ಮೊದಲ ಹಂತ {s1}, ಎರಡನೇ ಹಂತ {s2}. ನೀವು ಹತ್ತಿರದ ಗ್ರಾಮ ಒನ್ ಅಥವಾ ಸಿಎಸ್ಸಿ ಕೇಂದ್ರದಲ್ಲಿ ಸುಲಭವಾಗಿ ಅರ್ಜಿ ಸಲ್ಲಿಸಬಹುದು."
+                        display = f"ಅರ್ಜಿ ಸಲ್ಲಿಸುವ ಅಧಿಕೃತ ವಿಧಾನ ({title}):\n" + "\n".join([f"• ಹಂತ {i+1}: {t}" for i, t in enumerate(step_texts)]) + f"\n\nಅಧಿಕೃತ ಪೋರ್ಟಲ್: {portal}\nಅರ್ಜಿ ಕೇಂದ್ರ: ಗ್ರಾಮ ಒನ್ ಅಥವಾ ಸಿಎಸ್‌ಸಿ ಕೇಂದ್ರ"
+                    else:
+                        spoken = f"{title} ಯೋಜನೆಗೆ ನಿಮ್ಮ ಹತ್ತಿರದ ಗ್ರಾಮ ಒನ್ ಅಥವಾ ಸಿಎಸ್ಸಿ ಕೇಂದ್ರದಲ್ಲಿ ಸುಲಭವಾಗಿ ಅರ್ಜಿ ಸಲ್ಲಿಸಬಹುದು."
+                        display = f"ಅರ್ಜಿ ಪ್ರಕ್ರಿಯೆ ({title}):\n• ಗ್ರಾಮ ಒನ್ ಅಥವಾ ಸಿಎಸ್‌ಸಿ ಕೇಂದ್ರಕ್ಕೆ ಭೇಟಿ ನೀಡಿ.\n• ಅಧಿಕೃತ ಪೋರ್ಟಲ್: {portal}"
                 elif lang == "hi":
-                    spoken = f"आप अपने नजदीकी कॉमन सर्विस सेंटर या आधिकारिक पोर्टल से आवेदन कर सकते हैं। पहला कदम: {s1}."
-                    display = f"आवेदन प्रक्रिया:\n• नजदीकी सीएससी या आधिकारिक पोर्टल।\n• पहला कदम: {s1}."
+                    if step_texts:
+                        s1 = step_texts[0]
+                        s2 = step_texts[1] if len(step_texts) > 1 else "दस्तावेज़ जमा करें"
+                        spoken = f"{title} के लिए आवेदन करने हेतु: पहला कदम {s1}, दूसरा कदम {s2}। आप नजदीकी सीएससी या पोर्टल से आवेदन कर सकते हैं।"
+                        display = f"आवेदन की आधिकारिक प्रक्रिया ({title}):\n" + "\n".join([f"• चरण {i+1}: {t}" for i, t in enumerate(step_texts)]) + f"\n\nआधिकारिक पोर्टल: {portal}\nआवेदन केंद्र: कॉमन सर्विस सेंटर (सीएससी)"
+                    else:
+                        spoken = f"{title} के लिए आप नजदीकी कॉमन सर्विस सेंटर या आधिकारिक पोर्टल से आवेदन कर सकते हैं।"
+                        display = f"आवेदन प्रक्रिया ({title}):\n• नजदीकी सीएससी या आधिकारिक पोर्टल।\n• आधिकारिक पोर्टल: {portal}"
                 else:
-                    spoken = f"You can apply at your nearest Common Service Centre or through the official portal. First step: {s1}."
-                    display = f"Application Process:\n• Nearest Common Service Centre or portal.\n• Step 1: {s1}."
+                    if step_texts:
+                        s1 = step_texts[0]
+                        s2 = step_texts[1] if len(step_texts) > 1 else "submit verification documents"
+                        spoken = f"To apply for {title}: Step 1 is to {s1}, and Step 2 is to {s2}. You can complete this at your nearest Common Service Centre or official portal."
+                        display = f"Official Application Steps ({title}):\n" + "\n".join([f"• Step {i+1}: {t}" for i, t in enumerate(step_texts)]) + f"\n\nOfficial Portal: {portal}\nNearest Centre: Common Service Centre (CSC) or Grama One"
+                    else:
+                        spoken = f"You can apply for {title} online via the official portal or visit your nearest Common Service Centre."
+                        display = f"Application Process ({title}):\n• Official Portal: {portal}\n• Nearest Common Service Centre"
+
+            elif intent == "STATUS_OR_MISSING_INQUIRY":
+                if lang == "kn":
+                    spoken = f"ನಿಮ್ಮ ಅರ್ಜಿಯ ಸ್ಥಿತಿಯನ್ನು ಅಧಿಕೃತ ಪೋರ್ಟಲ್‌ನಲ್ಲಿ 'Know Your Status' ಮೂಲಕ ಪರಿಶೀಲಿಸಬಹುದು. ಹೆಸರು ಪಟ್ಟಿಯಲ್ಲಿ ಇಲ್ಲದಿದ್ದರೆ ಗ್ರಾಮ ಪಂಚಾಯಿತಿ ನೋಡಲ್ ಅಧಿಕಾರಿಯನ್ನು ಸಂಪರ್ಕಿಸಿ."
+                    display = f"ಅರ್ಜಿ ಸ್ಥಿತಿ ಮತ್ತು ಫಲಾನುಭವಿ ಪಟ್ಟಿ ಪರಿಶೀಲನೆ ({title}):\n• ಅಧಿಕೃತ ಪೋರ್ಟಲ್‌ನಲ್ಲಿ ನೋಂದಣಿ ಸಂಖ್ಯೆ ಅಥವಾ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಮೂಲಕ ಸ್ಥಿತಿ ಪರಿಶೀಲಿಸಿ.\n• ಹೆಸರು ಪಟ್ಟಿಯಲ್ಲಿ ಕಾಣದಿದ್ದರೆ ಗ್ರಾಮ ಪಂಚಾಯಿತಿ / ಗ್ರಾಮ ಆಡಳಿತ ಅಧಿಕಾರಿಯನ್ನು ಸಂಪರ್ಕಿಸಿ.\n• ಬ್ಯಾಂಕ್ ಖಾತೆಗೆ ಆಧಾರ್ ಲಿಂಕ್ ಮತ್ತು ಇ-ಕೆವೈಸಿ ಪೂರ್ಣಗೊಂಡಿರುವುದನ್ನು ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ.\n• ಅಧಿಕೃತ ಪೋರ್ಟಲ್: {portal}"
+                elif lang == "hi":
+                    spoken = f"आप अपने आवेदन की स्थिति आधिकारिक पोर्टल पर 'Know Your Status' से जांच सकते हैं। यदि लाभार्थी सूची में नाम नहीं है, तो अपने ग्राम नोडल अधिकारी से संपर्क करें।"
+                    display = f"आवेदन स्थिति एवं लाभार्थी सूची ({title}):\n• आधिकारिक पोर्टल पर रजिस्ट्रेशन नंबर या आधार नंबर दर्ज कर स्थिति जांचें।\n• सूची में नाम न होने पर ग्राम पंचायत नोडल अधिकारी से संपर्क करें।\n• बैंक खाते में आधार सीडिंग (DBT) और eKYC की पुष्टि करें।\n• आधिकारिक पोर्टल: {portal}"
+                else:
+                    spoken = f"You can track your application status on the official portal under 'Know Your Status'. If your name is missing from the beneficiary list, contact your Village Nodal Officer or Agriculture Office."
+                    display = f"Application Status & Beneficiary List ({title}):\n• Track status on the official portal using your Registration or Aadhaar number.\n• If your name is missing, consult your Village Nodal Officer or local Agriculture Department.\n• Ensure your bank account is active with Aadhaar DBT seeding and eKYC completed.\n• Official Portal: {portal}"
 
             elif intent == "COMPARISON":
                 cat = scheme.get("category", "")
@@ -683,6 +810,7 @@ class VoiceConversationService:
             ))
 
         prompts = cls._generate_dynamic_prompts(active_sid, intent, lang)
+        confidence = 0.0 if (not active_sid and not chunks) else 1.0
         return VoiceChatResponse(
             spoken_text=spoken_clean,
             display_text=display,
@@ -690,6 +818,7 @@ class VoiceConversationService:
             dialogue_mode=VoiceDialogueMode.DISCOVERY,
             suggested_spoken_prompts=prompts,
             citations=citations,
+            confidence_score=confidence,
             active_scheme_id=active_sid,
             detected_intent=intent,
             extracted_profile=profile

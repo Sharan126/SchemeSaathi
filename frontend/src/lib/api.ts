@@ -295,7 +295,12 @@ function evaluateLocalEligibility(profile: Record<string, any>, schemeId?: strin
   };
 }
 
-function synthesizeClientFallback(query: string, locale: string = "en"): GroundedAnswerResponse {
+function synthesizeClientFallback(
+  query: string,
+  locale: string = "en",
+  targetSchemeId?: string,
+  history?: VoiceMessage[]
+): GroundedAnswerResponse {
   const qNorm = query.toLowerCase().trim();
 
   // 1. Greetings & Bot Identity
@@ -326,7 +331,7 @@ function synthesizeClientFallback(query: string, locale: string = "en"): Grounde
   }
 
   // 2. Search for relevant scheme in STATIC_SCHEMES with comprehensive multilingual triggers
-  const matchedScheme = STATIC_SCHEMES.find((s) => {
+  let matchedScheme = STATIC_SCHEMES.find((s) => {
     const id = s.id.toLowerCase();
     const titles = Object.values(s.title || {}).map((v) => v.toLowerCase());
     const descriptions = Object.values(s.short_description || {}).map((v) => v.toLowerCase());
@@ -438,15 +443,64 @@ function synthesizeClientFallback(query: string, locale: string = "en"): Grounde
     return false;
   });
 
+  // Resolve from multi-turn context if follow-up query didn't repeat the scheme name
+  if (!matchedScheme && targetSchemeId) {
+    matchedScheme = STATIC_SCHEMES.find((s) => s.id === targetSchemeId);
+  }
+  if (!matchedScheme && history && history.length > 0) {
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i].scheme_id) {
+        matchedScheme = STATIC_SCHEMES.find((s) => s.id === history[i].scheme_id);
+        if (matchedScheme) break;
+      }
+    }
+  }
+
   if (matchedScheme) {
     const title = (matchedScheme.title as any)[locale] || matchedScheme.title.en;
     const portal = matchedScheme.official_portal_url;
 
-    // Check query intent: Criteria / Exclusion vs Benefit vs Documents vs Steps vs General
+    // Check specific query intent
+    const isApplication =
+      qNorm.includes("apply") ||
+      qNorm.includes("application") ||
+      qNorm.includes("how to") ||
+      qNorm.includes("where to") ||
+      qNorm.includes("portal") ||
+      qNorm.includes("procedure") ||
+      qNorm.includes("step") ||
+      qNorm.includes("ಅರ್ಜಿ") ||
+      qNorm.includes("ವಿಧಾನ") ||
+      qNorm.includes("ಸಲ್ಲಿಸು") ||
+      qNorm.includes("ಹಂತ") ||
+      qNorm.includes("ಹೇಗೆ") ||
+      qNorm.includes("ಎಲ್ಲಿ") ||
+      qNorm.includes("ಹಾಕುವುದು") ||
+      qNorm.includes("आवेदन") ||
+      qNorm.includes("प्रक्रिया") ||
+      qNorm.includes("तरीका") ||
+      qNorm.includes("कहाँ");
+
+    const isStatusOrMissing =
+      qNorm.includes("status") ||
+      qNorm.includes("track") ||
+      qNorm.includes("missing") ||
+      qNorm.includes("beneficiary list") ||
+      qNorm.includes("list") ||
+      qNorm.includes("ಸ್ಥಿತಿ") ||
+      qNorm.includes("ಪಟ್ಟಿ") ||
+      qNorm.includes("ಹೆಸರು ಇಲ್ಲ") ||
+      qNorm.includes("ಪರಿಶೀಲನೆ") ||
+      qNorm.includes("स्थिति") ||
+      qNorm.includes("स्टेटस") ||
+      qNorm.includes("सूची में नाम") ||
+      qNorm.includes("नाम नहीं");
+
     const isExclusionOrCriteria =
       qNorm.includes("exclusion") ||
       qNorm.includes("criteria") ||
       qNorm.includes("eligible") ||
+      qNorm.includes("qualification") ||
       qNorm.includes("अपात्र") ||
       qNorm.includes("पात्र") ||
       qNorm.includes("शर्त") ||
@@ -455,50 +509,56 @@ function synthesizeClientFallback(query: string, locale: string = "en"): Grounde
 
     const isBenefit =
       qNorm.includes("benefit") ||
+      qNorm.includes("assistance") ||
       qNorm.includes("cash") ||
       qNorm.includes("money") ||
       qNorm.includes("cover") ||
+      qNorm.includes("amount") ||
+      qNorm.includes("installments") ||
       qNorm.includes("कितना") ||
       qNorm.includes("लाभ") ||
+      qNorm.includes("सहायता") ||
+      qNorm.includes("राशि") ||
       qNorm.includes("ಎಷ್ಟು") ||
+      qNorm.includes("ಸಹಾಯಧನ") ||
       qNorm.includes("ಲಾಭ");
 
     const isDocs =
       qNorm.includes("document") ||
       qNorm.includes("dastavez") ||
       qNorm.includes("proof") ||
+      qNorm.includes("certificate") ||
       qNorm.includes("दस्तावेज़") ||
+      qNorm.includes("कागजात") ||
       qNorm.includes("ದಾಖಲೆ");
 
     let specificContent = "";
+    let sectionTitle = "Official Overview";
 
-    if (isExclusionOrCriteria && matchedScheme.criteria && matchedScheme.criteria.length > 0) {
-      const criteriaList = matchedScheme.criteria
-        .map((c: any, i: number) => {
-          const exp = c.explanation ? (c.explanation[locale] || c.explanation.en) : c.field_name;
-          return `${i + 1}. ${exp}`;
+    if (isStatusOrMissing) {
+      sectionTitle = "Application Status & Beneficiary List";
+      specificContent =
+        locale === "kn"
+          ? `ಅರ್ಜಿ ಸ್ಥಿತಿ ಮತ್ತು ಫಲಾನುಭವಿ ಪಟ್ಟಿ ಪರಿಶೀಲನೆ:\n1. ಅಧಿಕೃತ ಪೋರ್ಟಲ್‌ನಲ್ಲಿ 'Know Your Status' ಆಯ್ಕೆಮಾಡಿ ನೋಂದಣಿ ಅಥವಾ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ನಮೂದಿಸಿ.\n2. ಹೆಸರು ಪಟ್ಟಿಯಲ್ಲಿ ಕಾಣದಿದ್ದರೆ ಗ್ರಾಮ ಪಂಚಾಯಿತಿ ನೋಡಲ್ ಅಧಿಕಾರಿಯನ್ನು ಸಂಪರ್ಕಿಸಿ.\n3. ಬ್ಯಾಂಕ್ ಖಾತೆಗೆ ಆಧಾರ್ ಲಿಂಕ್ ಮತ್ತು ಇ-ಕೆವೈಸಿ ಪೂರ್ಣಗೊಂಡಿರುವುದನ್ನು ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ.`
+          : locale === "hi"
+          ? `आवेदन स्थिति एवं लाभार्थी सूची सत्यापन:\n1. आधिकारिक पोर्टल पर 'Know Your Status' विकल्प चुनकर रजिस्ट्रेशन या मोबाइल नंबर दर्ज करें।\n2. सूची में नाम न होने पर अपने ग्राम पंचायत नोडल अधिकारी से संपर्क करें।\n3. बैंक खाते में आधार सीडिंग (DBT) और eKYC की पुष्टि करें।`
+          : `Application Status & Beneficiary List Verification:\n1. Visit the official portal and select 'Know Your Status' using your registration or mobile number.\n2. If your name is missing from the beneficiary list, contact your Village Nodal Officer or Agriculture Department.\n3. Ensure your bank account has active Aadhaar DBT seeding and eKYC completed.`;
+    } else if (isApplication && matchedScheme.application_steps && matchedScheme.application_steps.length > 0) {
+      sectionTitle = "Official Application Procedure";
+      const stepsList = matchedScheme.application_steps
+        .map((step: any, i: number) => {
+          const text = step ? (step[locale] || step.en || step) : "";
+          return `${i + 1}. ${text}`;
         })
         .join("\n");
       specificContent =
-        locale === "hi"
-          ? `पात्रता एवं बहिष्करण शर्तें (Eligibility & Criteria):\n${criteriaList}`
-          : locale === "kn"
-          ? `ಅರ್ಹತೆ ಮತ್ತು ಹೊರಗಿಡುವ ಮಾನದಂಡಗಳು (Eligibility & Criteria):\n${criteriaList}`
-          : `Official Statutory Criteria & Exclusions:\n${criteriaList}`;
-    } else if (isBenefit && matchedScheme.benefits && matchedScheme.benefits.length > 0) {
-      const benefitsList = matchedScheme.benefits
-        .map((b: any, i: number) => {
-          const amt = b.amount_description ? (b.amount_description[locale] || b.amount_description.en) : "";
-          return `${i + 1}. ${amt} (${b.frequency || "Direct Benefit Transfer"})`;
-        })
-        .join("\n");
-      specificContent =
-        locale === "hi"
-          ? `योजना के प्रत्यक्ष लाभ (Benefits):\n${benefitsList}`
-          : locale === "kn"
-          ? `ಯೋಜನೆಯ ಪ್ರಯೋಜನಗಳು (Benefits):\n${benefitsList}`
-          : `Direct Welfare Entitlements (Benefits):\n${benefitsList}`;
+        locale === "kn"
+          ? `ಅರ್ಜಿ ಸಲ್ಲಿಸುವ ಅಧಿಕೃತ ವಿಧಾನ (Application Steps):\n${stepsList}\n\nನೀವು ನಿಮ್ಮ ಹತ್ತಿರದ ಗ್ರಾಮ ಒನ್ ಅಥವಾ ಸಿಎಸ್‌ಸಿ ಕೇಂದ್ರದಲ್ಲಿ ಸುಲಭವಾಗಿ ಅರ್ಜಿ ಸಲ್ಲಿಸಬಹುದು.`
+          : locale === "hi"
+          ? `आवेदन करने की आधिकारिक प्रक्रिया (Application Steps):\n${stepsList}\n\nआप अपने नजदीकी कॉमन सर्विस सेंटर (सीएससी) या आधिकारिक पोर्टल से आवेदन कर सकते हैं।`
+          : `Official Application Procedure:\n${stepsList}\n\nYou can also apply through your nearest Common Service Centre (CSC) or Grama One.`;
     } else if (isDocs && matchedScheme.documents && matchedScheme.documents.length > 0) {
+      sectionTitle = "Mandatory Verification Documents";
       const docsList = matchedScheme.documents
         .map((d: any, i: number) => {
           const docName = d.document_name ? (d.document_name[locale] || d.document_name.en) : d.document_code;
@@ -512,6 +572,34 @@ function synthesizeClientFallback(query: string, locale: string = "en"): Grounde
           : locale === "kn"
           ? `ಅಗತ್ಯ ಅಧಿಕೃತ ದಾಖಲೆಗಳು (Required Documents):\n${docsList}`
           : `Mandatory Verification Documents:\n${docsList}`;
+    } else if (isBenefit && matchedScheme.benefits && matchedScheme.benefits.length > 0) {
+      sectionTitle = "Financial Entitlements";
+      const benefitsList = matchedScheme.benefits
+        .map((b: any, i: number) => {
+          const amt = b.amount_description ? (b.amount_description[locale] || b.amount_description.en) : "";
+          return `${i + 1}. ${amt} (${b.frequency || "Direct Benefit Transfer"})`;
+        })
+        .join("\n");
+      specificContent =
+        locale === "hi"
+          ? `योजना के प्रत्यक्ष लाभ (Benefits):\n${benefitsList}`
+          : locale === "kn"
+          ? `ಯೋಜನೆಯ ಪ್ರಯೋಜನಗಳು (Benefits):\n${benefitsList}`
+          : `Direct Welfare Entitlements (Benefits):\n${benefitsList}`;
+    } else if (isExclusionOrCriteria && matchedScheme.criteria && matchedScheme.criteria.length > 0) {
+      sectionTitle = "Statutory Criteria & Exclusions";
+      const criteriaList = matchedScheme.criteria
+        .map((c: any, i: number) => {
+          const exp = c.explanation ? (c.explanation[locale] || c.explanation.en) : c.field_name;
+          return `${i + 1}. ${exp}`;
+        })
+        .join("\n");
+      specificContent =
+        locale === "hi"
+          ? `पात्रता एवं बहिष्करण शर्तें (Eligibility & Criteria):\n${criteriaList}`
+          : locale === "kn"
+          ? `ಅರ್ಹತೆ ಮತ್ತು ಹೊರಗಿಡುವ ಮಾನದಂಡಗಳು (Eligibility & Criteria):\n${criteriaList}`
+          : `Official Statutory Criteria & Exclusions:\n${criteriaList}`;
     } else {
       specificContent =
         (matchedScheme.full_description as any)[locale] ||
@@ -538,7 +626,7 @@ function synthesizeClientFallback(query: string, locale: string = "en"): Grounde
         {
           scheme_id: matchedScheme.id,
           scheme_name: title,
-          section_title: isExclusionOrCriteria ? "Statutory Criteria & Exclusions" : isBenefit ? "Financial Entitlements" : isDocs ? "Required Documents" : "Official Overview",
+          section_title: sectionTitle,
           official_portal_url: portal,
           gazette_notification_url: matchedScheme.gazette_notification_url,
           source_reference_date: matchedScheme.source_reference_date || "2024-01-01",
@@ -638,7 +726,7 @@ export async function sendVoiceChat(
   }
 
   // Local fallback response with dynamic contextual grounding
-  const grounded = synthesizeClientFallback(query, language);
+  const grounded = synthesizeClientFallback(query, language, targetSchemeId, history);
   let spoken = grounded.answer
     .replace(/https?:\/\/\S+/g, "")
     .replace(/\n+/g, ". ")

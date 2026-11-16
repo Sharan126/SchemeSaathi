@@ -132,6 +132,8 @@ class SchemeRepository:
         for s in cls._schemes_store.values():
             if s.get("status") != SchemeStatus.PUBLISHED:
                 continue
+
+            # 1. Existing explicit chunks
             for idx, ch in enumerate(s.get("chunks", [])):
                 content = ch.get("content", "")
                 vec = ch.get("embedding_vector") or EmbeddingService.generate_vector(content)
@@ -148,6 +150,83 @@ class SchemeRepository:
                     "source_reference_date": s.get("source_reference_date", "2024-01-01"),
                     "embedding_vector": vec
                 })
+
+            # 2. Rich Application Steps Chunks across languages (en, hi, kn)
+            app_steps = s.get("application_steps", [])
+            if app_steps:
+                step_section_titles = {
+                    "en": "Application Steps and How to Apply",
+                    "hi": "आवेदन प्रक्रिया एवं चरण",
+                    "kn": "ಅರ್ಜಿ ಸಲ್ಲಿಸುವ ಅಧಿಕೃತ ವಿಧಾನ ಮತ್ತು ಹಂತಗಳು"
+                }
+                for lang_code in ("en", "hi", "kn"):
+                    step_lines = []
+                    for st in app_steps:
+                        num = st.get("step", len(step_lines) + 1)
+                        desc = st.get(lang_code, st.get("en", ""))
+                        if desc:
+                            step_lines.append(f"Step {num}: {desc}")
+
+                    portal = s.get("official_portal_url", "")
+                    if lang_code == "kn":
+                        footer = f"\nಅಧಿಕೃತ ಪೋರ್ಟಲ್: {portal}\nಅರ್ಜಿ ಸಲ್ಲಿಸಲು ಹತ್ತಿರದ ಗ್ರಾಮ ಒನ್ ಅಥವಾ ಸಿಎಸ್‌ಸಿ ಕೇಂದ್ರಕ್ಕೆ ಭೇಟಿ ನೀಡಿ."
+                    elif lang_code == "hi":
+                        footer = f"\nआधिकारिक पोर्टल: {portal}\nआवेदन के लिए नजदीकी सीएससी (कॉमन सर्विस सेंटर) पर जाएं।"
+                    else:
+                        footer = f"\nOfficial Portal: {portal}\nYou can also apply through your nearest Common Service Centre (CSC) or Grama One."
+
+                    content_steps = f"{s.get('title', {}).get(lang_code, s['id'])} - {step_section_titles[lang_code]}:\n" + "\n".join(step_lines) + footer
+                    vec = EmbeddingService.generate_vector(content_steps)
+                    all_chunks.append({
+                        "id": f"{s['id']}-app-steps-{lang_code}",
+                        "scheme_id": s["id"],
+                        "scheme_title": s.get("title", {}),
+                        "category": s.get("category"),
+                        "section_title": step_section_titles[lang_code],
+                        "language": lang_code,
+                        "content": content_steps,
+                        "official_portal_url": portal,
+                        "gazette_notification_url": s.get("gazette_notification_url"),
+                        "source_reference_date": s.get("source_reference_date", "2024-01-01"),
+                        "embedding_vector": vec
+                    })
+
+            # 3. Mandatory Verification Documents Chunks across languages (en, hi, kn)
+            docs = s.get("documents", [])
+            if docs:
+                doc_section_titles = {
+                    "en": "Mandatory Verification Documents",
+                    "hi": "आवश्यक आधिकारिक सत्यापन दस्तावेज़",
+                    "kn": "ಕಡ್ಡಾಯ ಪರಿಶೀಲನಾ ದಾಖಲೆಗಳು"
+                }
+                for lang_code in ("en", "hi", "kn"):
+                    doc_lines = []
+                    for d in docs:
+                        dname = d.get("document_name", {}).get(lang_code, d.get("document_name", {}).get("en", d.get("document_code", "")))
+                        auth = d.get("issuing_authority", {}).get(lang_code, d.get("issuing_authority", {}).get("en", ""))
+                        mand = "Mandatory" if d.get("is_mandatory") else "Optional"
+                        if lang_code == "kn":
+                            mand = "ಕಡ್ಡಾಯ" if d.get("is_mandatory") else "ಐಚ್ಛಿಕ"
+                        elif lang_code == "hi":
+                            mand = "अनिवार्य" if d.get("is_mandatory") else "वैकल्पिक"
+                        auth_str = f" ({auth})" if auth else ""
+                        doc_lines.append(f"• {dname}{auth_str} - {mand}")
+
+                    content_docs = f"{s.get('title', {}).get(lang_code, s['id'])} - {doc_section_titles[lang_code]}:\n" + "\n".join(doc_lines)
+                    vec = EmbeddingService.generate_vector(content_docs)
+                    all_chunks.append({
+                        "id": f"{s['id']}-docs-{lang_code}",
+                        "scheme_id": s["id"],
+                        "scheme_title": s.get("title", {}),
+                        "category": s.get("category"),
+                        "section_title": doc_section_titles[lang_code],
+                        "language": lang_code,
+                        "content": content_docs,
+                        "official_portal_url": s.get("official_portal_url", ""),
+                        "gazette_notification_url": s.get("gazette_notification_url"),
+                        "source_reference_date": s.get("source_reference_date", "2024-01-01"),
+                        "embedding_vector": vec
+                    })
         cls._cached_chunks = all_chunks
         return cls._cached_chunks
 

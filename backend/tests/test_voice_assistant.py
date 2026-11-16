@@ -511,3 +511,146 @@ class TestDiverseSpokenQuestionsAndContext:
         assert resp_farmer.spoken_text != resp_health.spoken_text
         assert resp_health.spoken_text != resp_scholarship.spoken_text
         assert resp_farmer.active_scheme_id != resp_health.active_scheme_id
+
+
+class TestRegressionGroupsSection10:
+    """Rigorous multi-turn and regression test suite required by Section 10."""
+
+    def test_group_a_pm_kisan_full_6_turn_journey(self):
+        """Test Group A: Full 6-turn sequential inquiry on PM-KISAN.
+        Every turn MUST produce unique, non-repeating, intent-specific spoken answers."""
+        history = []
+
+        # Turn 1: Overview
+        t1 = VoiceConversationService.answer_spoken_query(
+            query="What is PM-KISAN?",
+            language="en",
+            conversation_history=history
+        )
+        assert t1.active_scheme_id == "pm-kisan"
+        assert t1.detected_intent in ["SCHEME_EXPLANATION", "OVERVIEW_INQUIRY", "GENERAL_DISCOVERY"]
+        assert len(t1.spoken_text) > 20
+        history.append(VoiceMessage(role="citizen", content="What is PM-KISAN?", scheme_id=t1.active_scheme_id))
+        history.append(VoiceMessage(role="assistant", content=t1.spoken_text, scheme_id=t1.active_scheme_id))
+
+        # Turn 2: Benefit inquiry
+        t2 = VoiceConversationService.answer_spoken_query(
+            query="How much assistance does it provide?",
+            language="en",
+            conversation_history=history
+        )
+        assert t2.active_scheme_id == "pm-kisan"
+        assert t2.detected_intent == "BENEFIT_INQUIRY"
+        assert t2.spoken_text != t1.spoken_text
+        history.append(VoiceMessage(role="citizen", content="How much assistance does it provide?", scheme_id=t2.active_scheme_id))
+        history.append(VoiceMessage(role="assistant", content=t2.spoken_text, scheme_id=t2.active_scheme_id))
+
+        # Turn 3: Application procedure in Kannada (the exact user-reported failure case)
+        t3 = VoiceConversationService.answer_spoken_query(
+            query="ಅರ್ಜಿ ಸಲ್ಲಿಸಲು ವಿಧಾನವನ್ನು ತಿಳಿಸು",
+            language="kn",
+            conversation_history=history
+        )
+        assert t3.active_scheme_id == "pm-kisan"
+        assert t3.detected_intent == "APPLICATION_INQUIRY"
+        assert t3.spoken_text != t2.spoken_text
+        assert t3.spoken_text != t1.spoken_text
+        # Must contain application steps, not generic intro
+        assert "ಅರ್ಜಿ ಸಲ್ಲಿಸಲು" in t3.spoken_text or "ಹಂತ" in t3.spoken_text or "ಪೋರ್ಟಲ್" in t3.spoken_text
+        history.append(VoiceMessage(role="citizen", content="ಅರ್ಜಿ ಸಲ್ಲಿಸಲು ವಿಧಾನವನ್ನು ತಿಳಿಸು", scheme_id=t3.active_scheme_id))
+        history.append(VoiceMessage(role="assistant", content=t3.spoken_text, scheme_id=t3.active_scheme_id))
+
+        # Turn 4: Required documents
+        t4 = VoiceConversationService.answer_spoken_query(
+            query="What documents do I need?",
+            language="en",
+            conversation_history=history
+        )
+        assert t4.active_scheme_id == "pm-kisan"
+        assert t4.detected_intent == "DOCUMENT_INQUIRY"
+        assert t4.spoken_text != t3.spoken_text
+        assert t4.spoken_text != t2.spoken_text
+        assert t4.spoken_text != t1.spoken_text
+        assert "document" in t4.spoken_text.lower() or "aadhaar" in t4.spoken_text.lower() or "records" in t4.spoken_text.lower()
+        history.append(VoiceMessage(role="citizen", content="What documents do I need?", scheme_id=t4.active_scheme_id))
+        history.append(VoiceMessage(role="assistant", content=t4.spoken_text, scheme_id=t4.active_scheme_id))
+
+        # Turn 5: Check application status
+        t5 = VoiceConversationService.answer_spoken_query(
+            query="Where can I check my application status?",
+            language="en",
+            conversation_history=history
+        )
+        assert t5.active_scheme_id == "pm-kisan"
+        assert t5.detected_intent == "STATUS_OR_MISSING_INQUIRY"
+        assert t5.spoken_text != t4.spoken_text
+        assert t5.spoken_text != t3.spoken_text
+        assert t5.spoken_text != t2.spoken_text
+        assert t5.spoken_text != t1.spoken_text
+        assert "status" in t5.spoken_text.lower() or "portal" in t5.spoken_text.lower()
+        history.append(VoiceMessage(role="citizen", content="Where can I check my application status?", scheme_id=t5.active_scheme_id))
+        history.append(VoiceMessage(role="assistant", content=t5.spoken_text, scheme_id=t5.active_scheme_id))
+
+        # Turn 6: Missing name from beneficiary list
+        t6 = VoiceConversationService.answer_spoken_query(
+            query="What if my name is missing from the beneficiary list?",
+            language="en",
+            conversation_history=history
+        )
+        assert t6.active_scheme_id == "pm-kisan"
+        assert t6.detected_intent == "STATUS_OR_MISSING_INQUIRY"
+        assert "officer" in t6.spoken_text.lower() or "department" in t6.spoken_text.lower() or "nodal" in t6.spoken_text.lower() or "status" in t6.spoken_text.lower()
+
+    def test_group_b_topic_switching(self):
+        """Test Group B: Rapid topic transitions across domains."""
+        # 1. Farmer scheme
+        r1 = VoiceConversationService.answer_spoken_query("I am a small farmer, what schemes can help me?", language="en")
+        assert r1.active_scheme_id in ["pm-kisan", "pm-kusum"]
+
+        # 2. Transition to student scholarship
+        r2 = VoiceConversationService.answer_spoken_query("Now tell me about scholarships for SC students", language="en")
+        assert r2.active_scheme_id == "pms-sc"
+        assert r2.active_scheme_id != r1.active_scheme_id
+
+        # 3. Transition to senior citizen pension
+        r3 = VoiceConversationService.answer_spoken_query("What about old age pension for senior citizens?", language="en")
+        assert r3.active_scheme_id == "ignoaps"
+        assert r3.active_scheme_id != r2.active_scheme_id
+
+        # 4. Transition to healthcare
+        r4 = VoiceConversationService.answer_spoken_query("How can I get free hospitalization coverage?", language="en")
+        assert r4.active_scheme_id == "ayushman-bharat-pmjay"
+        assert r4.active_scheme_id != r3.active_scheme_id
+
+    def test_group_c_contextual_followups(self):
+        """Test Group C: Pronoun and contextual reference resolution across turns."""
+        history = []
+        # Turn 1: Farmer in Karnataka
+        r1 = VoiceConversationService.answer_spoken_query("I am a small farmer with 2 acres in Karnataka", language="en")
+        history.append(VoiceMessage(role="citizen", content="I am a small farmer with 2 acres in Karnataka", scheme_id=r1.active_scheme_id))
+        history.append(VoiceMessage(role="assistant", content=r1.spoken_text, scheme_id=r1.active_scheme_id))
+
+        # Turn 2: Follow up: "Which schemes can I apply for?"
+        r2 = VoiceConversationService.answer_spoken_query("Which schemes can I apply for?", language="en", conversation_history=history)
+        history.append(VoiceMessage(role="citizen", content="Which schemes can I apply for?", scheme_id=r2.active_scheme_id or "pm-kisan"))
+        history.append(VoiceMessage(role="assistant", content=r2.spoken_text, scheme_id=r2.active_scheme_id or "pm-kisan"))
+
+        # Turn 3: Follow up: "How do I apply for the first one?"
+        r3 = VoiceConversationService.answer_spoken_query("How do I apply for the first one?", language="en", conversation_history=history)
+        assert r3.detected_intent == "APPLICATION_INQUIRY"
+        assert r3.active_scheme_id is not None
+        history.append(VoiceMessage(role="citizen", content="How do I apply for the first one?", scheme_id=r3.active_scheme_id))
+        history.append(VoiceMessage(role="assistant", content=r3.spoken_text, scheme_id=r3.active_scheme_id))
+
+        # Turn 4: Follow up: "What documents will they ask for?"
+        r4 = VoiceConversationService.answer_spoken_query("What documents will they ask for?", language="en", conversation_history=history)
+        assert r4.detected_intent == "DOCUMENT_INQUIRY"
+        assert r4.spoken_text != r3.spoken_text
+
+    def test_group_d_unsupported_information_abstention(self):
+        """Test Group D: Honest abstention when citizen asks about non-existent schemes."""
+        fake_query = "Tell me about the Mars Colonization Welfare Scheme"
+        res = VoiceConversationService.answer_spoken_query(fake_query, language="en")
+        assert "could not find verified" in res.spoken_text.lower()
+        assert res.citations == []
+        assert res.confidence_score == 0.0
