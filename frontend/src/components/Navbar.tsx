@@ -37,7 +37,7 @@ export function Navbar() {
           <span>{t("brand.gov_portal")}</span>
         </div>
         <div className="flex items-center space-x-3">
-          <span className="hidden sm:inline text-slate-400">Deterministic & Verified</span>
+          <span className="hidden sm:inline text-slate-400">Verified Records • Multilingual Readiness</span>
           <div className="flex items-center space-x-1 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
             <Globe className="w-3 h-3 text-slate-400" />
             <select

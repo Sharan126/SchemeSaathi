@@ -1303,5 +1303,62 @@ export const STATIC_DOCUMENTS: DocumentDirectoryItem[] = [
       "kn": "40% ಅಥವಾ ಅದಕ್ಕಿಂತ ಹೆಚ್ಚು ಶಾಶ್ವತ ಅಂಗವೈಕಲ್ಯ ಹೊಂದಿರುವ ವ್ಯಕ್ತಿಗಳಿಗೆ ರಾಷ್ಟ್ರೀಯ ಗುರುತಿನ ಚೀಟಿ."
     },
     "estimated_tat_days": "30 days"
+  },
+  {
+    "code": "bpl_ration_card",
+    "name": {
+      "en": "BPL / Antyodaya Ration Card",
+      "hi": "बीपीएल / अंत्योदय राशन कार्ड",
+      "kn": "ಬಿಪಿಎಲ್ / ಅಂತ್ಯೋದಯ ಪಡಿತರ ಚೀಟಿ"
+    },
+    "authority": {
+      "en": "Food & Civil Supplies Department",
+      "hi": "खाद्य एवं नागरिक आपूर्ति विभाग",
+      "kn": "ಆಹಾರ ಮತ್ತು ನಾಗರಿಕ ಸರಬರಾಜು ಇಲಾಖೆ"
+    },
+    "description": {
+      "en": "Official state food security card identifying economically weaker households (NFSA / SECC).",
+      "hi": "आर्थिक रूप से कमजोर परिवारों की पहचान करने वाला आधिकारिक खाद्य सुरक्षा कार्ड।",
+      "kn": "ಆರ್ಥಿಕವಾಗಿ ಹಿಂದುಳಿದ ಕುಟುಂಬಗಳನ್ನು ಗುರುತಿಸುವ ಅಧಿಕೃತ ಆಹಾರ ಭದ್ರತಾ ಪಡಿತರ ಚೀಟಿ."
+    },
+    "estimated_tat_days": "15 - 30 days"
+  },
+  {
+    "code": "bank_passbook",
+    "name": {
+      "en": "Aadhaar-Linked Bank Account / Passbook",
+      "hi": "आधार से जुड़ा बैंक खाता / पासबुक",
+      "kn": "ಆಧಾರ್ ಲಿಂಕ್ ಆದ ಬ್ಯಾಂಕ್ ಖಾತೆ / ಪಾಸ್‌ಬುಕ್"
+    },
+    "authority": {
+      "en": "Any Scheduled Commercial Bank / India Post Payments Bank (IPPB)",
+      "hi": "कोई भी अनुसूचित वाणिज्यिक बैंक / डाकघर बैंक",
+      "kn": "ಯಾವುದೇ ವಾಣಿಜ್ಯ ಬ್ಯಾಂಕ್ / ಇಂಡಿಯಾ ಪೋಸ್ಟ್ ಪೇಮೆಂಟ್ಸ್ ಬ್ಯಾಂಕ್"
+    },
+    "description": {
+      "en": "Bank account seeded with Aadhaar and active NPCI direct benefit transfer (DBT) mandate.",
+      "hi": "डीबीटी नकद हस्तांतरण के लिए आधार और एनपीसीआई से जुड़ा सक्रिय बैंक खाता।",
+      "kn": "ನೇರ ನಗದು ವರ್ಗಾವಣೆಗೆ (ಡಿಬಿಟಿ) ಎನ್‌ಪಿಸಿಐ ಮ್ಯಾಂಡೇಟ್ ಹೊಂದಿರುವ ಆಧಾರ್ ಜೋಡಿತ ಬ್ಯಾಂಕ್ ಖಾತೆ."
+    },
+    "estimated_tat_days": "1 - 3 days (Instant via IPPB or Jan Dhan)"
+  },
+  {
+    "code": "mcp_card",
+    "name": {
+      "en": "Mother and Child Protection (MCP) Card",
+      "hi": "मातृ एवं बाल सुरक्षा (एमसीपी) कार्ड",
+      "kn": "ತಾಯಿ ಮತ್ತು ಮಗು ಸಂರಕ್ಷಣಾ (ಎಂಸಿಪಿ) ಕಾರ್ಡ್"
+    },
+    "authority": {
+      "en": "Anganwadi Centre / Primary Health Centre (PHC)",
+      "hi": "आंगनवाड़ी केंद्र / प्राथमिक स्वास्थ्य केंद्र (पीएचसी)",
+      "kn": "ಅಂಗನವಾಡಿ ಕೇಂದ್ರ / ಪ್ರಾಥಮಿಕ ಆರೋಗ್ಯ ಕೇಂದ್ರ"
+    },
+    "description": {
+      "en": "Official health tracking card for pregnant women and infants issued by Ministry of Women & Child Development.",
+      "hi": "गर्भवती महिलाओं और शिशुओं के लिए आधिकारिक स्वास्थ्य एवं टीकाकरण निगरानी कार्ड।",
+      "kn": "ಗರ್ಭಿಣಿಯರು ಮತ್ತು ಶಿಶುಗಳಿಗೆ ನೀಡಲಾಗುವ ಅಧಿಕೃತ ಆರೋಗ್ಯ ಮತ್ತು ಲಸಿಕೆ ಟ್ರ್ಯಾಕಿಂಗ್ ಕಾರ್ಡ್."
+    },
+    "estimated_tat_days": "Issued upon pregnancy registration at Anganwadi"
   }
 ];

@@ -5,8 +5,8 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "SchemeSaathi — Multilingual Government Scheme Discovery & Eligibility Platform",
-  description: "Discover Central Government schemes, check eligibility deterministically, and identify required documents in English, Hindi, and Kannada.",
+  title: "SchemeSaathi — Government Scheme Discovery & Application Readiness Platform",
+  description: "Discover government benefits, understand eligibility in your language, and prepare the documents you need — all in one place.",
 };
 
 export default function RootLayout({

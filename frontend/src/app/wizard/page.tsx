@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { evaluateEligibility } from "@/lib/api";
-import { BatchEvaluationResponse } from "@/types";
+import { BatchEvaluationResponse, EligibilityResult } from "@/types";
 import {
   ShieldCheck,
   CheckCircle2,
@@ -16,6 +16,12 @@ import {
   RotateCcw,
   Sparkles,
   Info,
+  HelpCircle,
+  FileText,
+  Building,
+  Check,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 function WizardContent() {
@@ -43,22 +49,27 @@ function WizardContent() {
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<BatchEvaluationResponse | null>(null);
+  const [showWhyAsking, setShowWhyAsking] = useState<string | null>(null);
 
   const steps = [
     {
       title: locale === "hi" ? "बुनियादी जानकारी एवं पेशा" : locale === "kn" ? "ಮೂಲ ವಿವರಗಳು ಮತ್ತು ವೃತ್ತಿ" : "Basic Profile & Occupation",
+      subtitle: locale === "hi" ? "यह जानकारी प्राथमिक योजना श्रेणियों को फ़ಿಲ್ಟರ್ करने के लिए है।" : locale === "kn" ? "ಪ್ರಾಥಮಿಕ ಯೋಜನೆಗಳ ವಿಭಾಗಗಳನ್ನು ತಿಳಿಯಲು ಈ ವಿವರ ಅಗತ್ಯ." : "Identifies targeted beneficiary categories and sectors.",
       fields: ["occupation", "gender", "age"],
     },
     {
       title: locale === "hi" ? "क्षेत्र एवं सामाजिक वर्ग" : locale === "kn" ? "ಪ್ರದೇಶ ಮತ್ತು ಸಾಮಾಜಿಕ ವರ್ಗ" : "Residence & Social Category",
+      subtitle: locale === "hi" ? "ग्रामीण आवास एवं विशेष समुदाय छात्रवृत्ति के लिए आवश्यक।" : locale === "kn" ? "ಗ್ರಾಮೀಣ ಮತ್ತು ವಿಶೇಷ ವಿದ್ಯಾರ್ಥಿವೇತನಕ್ಕೆ ಅಗತ್ಯ." : "Required for rural development and category scholarships.",
       fields: ["residence_area", "social_category"],
     },
     {
       title: locale === "hi" ? "आय एवं आर्थिक स्थिति" : locale === "kn" ? "ಆದಾಯ ಮತ್ತು ಆರ್ಥಿಕ ಸ್ಥಿತಿ" : "Financial & Landholding Details",
+      subtitle: locale === "hi" ? "अधिकांश योजनाओं में आय सीमा और भूमि स्वामित्व के नियम होते हैं।" : locale === "kn" ? "ಬಹುತೇಕ ಯೋಜನೆಗಳಲ್ಲಿ ಆದಾಯ ಮಿತಿ ಮತ್ತು ಭೂಹಿಡುವಳಿ ನಿಯಮಗಳಿರುತ್ತವೆ." : "Used strictly to verify statutory income ceilings and exclusions.",
       fields: ["annual_income_inr", "is_bpl_card_holder", "is_tax_payer", "landholding_hectares", "has_pucca_house"],
     },
     {
       title: locale === "hi" ? "विशिष्ट परिस्थितियां" : locale === "kn" ? "ವಿಶೇಷ ಸಂದರ್ಭಗಳು" : "Special Circumstances",
+      subtitle: locale === "hi" ? "मातृत्व सहायता या दिव्यांगजन पेंशन जैसी विशेष योजनाओं के लिए।" : locale === "kn" ? "ತಾಯಂದಿರ ನೆರವು ಅಥವಾ ದಿವ್ಯಾಂಗರ ಪಿಂಚಣಿ ಯೋಜನೆಗಳಿಗೆ." : "Qualifies citizens for targeted maternity or disability grants.",
       fields: ["is_pregnant_or_lactating", "is_disabled"],
     },
   ];
@@ -81,21 +92,24 @@ function WizardContent() {
 
   const resetWizard = () => {
     setResults(null);
-    setCurrentStep(0);
+  };
+
+  const toggleWhy = (fieldName: string) => {
+    setShowWhyAsking(showWhyAsking === fieldName ? null : fieldName);
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 py-2">
       {/* Title & Privacy Notice */}
       <div className="space-y-3 text-center">
-        <div className="inline-flex items-center space-x-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full text-xs font-semibold">
+        <div className="inline-flex items-center space-x-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 px-3.5 py-1 rounded-full text-xs font-semibold">
           <ShieldCheck className="w-4 h-4 text-emerald-600" />
           <span>{t("wizard.anonymous_notice")}</span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
           {t("wizard.title")}
         </h1>
-        <p className="text-sm text-slate-600 max-w-xl mx-auto">
+        <p className="text-xs sm:text-sm text-slate-600 max-w-xl mx-auto leading-relaxed">
           {t("wizard.subtitle")}
         </p>
       </div>
@@ -104,7 +118,7 @@ function WizardContent() {
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4 flex items-center justify-between text-xs sm:text-sm text-blue-900">
           <div className="flex items-center space-x-2">
             <Info className="w-4 h-4 text-blue-600 shrink-0" />
-            <span>Target Scheme Pre-selected: <strong className="font-semibold">{targetScheme}</strong></span>
+            <span>Target Scheme Selected: <strong className="font-semibold">{targetScheme}</strong></span>
           </div>
           <button
             onClick={() => setTargetScheme(null)}
@@ -116,11 +130,11 @@ function WizardContent() {
       )}
 
       {!results ? (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-10 space-y-8">
-          {/* Progress Bar */}
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-10 space-y-8">
+          {/* Progress Bar & Header */}
           <div className="space-y-2">
-            <div className="flex justify-between text-xs font-semibold text-slate-500">
-              <span>{t("wizard.step_counter")} {currentStep + 1} of {steps.length}: {steps[currentStep].title}</span>
+            <div className="flex justify-between items-center text-xs font-semibold text-slate-600">
+              <span>{t("wizard.step_counter")} {currentStep + 1} of {steps.length}: <strong className="text-slate-900">{steps[currentStep].title}</strong></span>
               <span>{Math.round(((currentStep + 1) / steps.length) * 100)}%</span>
             </div>
             <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -129,6 +143,9 @@ function WizardContent() {
                 style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
               />
             </div>
+            <p className="text-xs text-slate-500 pt-1">
+              {steps[currentStep].subtitle}
+            </p>
           </div>
 
           {/* Step Form Fields */}
@@ -136,22 +153,39 @@ function WizardContent() {
             {/* Occupation */}
             {steps[currentStep].fields.includes("occupation") && (
               <div className="space-y-2">
-                <label className="block text-sm font-bold text-slate-900">
-                  {locale === "hi" ? "आपका मुख्य व्यवसाय क्या है?" : locale === "kn" ? "ನಿಮ್ಮ ಮುಖ್ಯ ಉದ್ಯೋಗ ಯಾವುದು?" : "What is your primary occupation?"}
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-bold text-slate-900">
+                    {locale === "hi" ? "आपका मुख्य व्यवसाय क्या है?" : locale === "kn" ? "ನಿಮ್ಮ ಮುಖ್ಯ ಉದ್ಯೋಗ ಯಾವುದು?" : "What is your primary occupation?"}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => toggleWhy("occupation")}
+                    className="text-xs text-gov-blue hover:underline inline-flex items-center space-x-1 cursor-pointer"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    <span>{t("wizard.why_asking")}</span>
+                  </button>
+                </div>
+
+                {showWhyAsking === "occupation" && (
+                  <div className="bg-slate-50 p-2.5 rounded-lg text-xs text-slate-600 border border-slate-200">
+                    Different government ministries provide sector-specific grants (e.g. PM-KISAN is exclusively for cultivators, scholarships are for students).
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {[
-                    { val: "farmer", label: { en: "Farmer", hi: "किसान", kn: "ರೈತ" } },
-                    { val: "student", label: { en: "Student", hi: "विद्यार्थी", kn: "ವಿದ್ಯಾರ್ಥಿ" } },
-                    { val: "worker", label: { en: "Daily Worker", hi: "श्रमिक", kn: "ಕಾರ್ಮಿಕ" } },
-                    { val: "self_employed", label: { en: "Self-Employed", hi: "स्वरोजगार", kn: "ಸ್ವಯಂ ಉದ್ಯೋಗಿ" } },
-                    { val: "senior_citizen", label: { en: "Senior Citizen", hi: "वरिष्ठ नागरिक", kn: "ಹಿರಿಯ ನಾಗರಿಕ" } },
+                    { val: "farmer", label: { en: "Cultivator / Farmer", hi: "किसान / कृषक", kn: "ರೈತ / ಕೃಷಿಕ" } },
+                    { val: "student", label: { en: "Student", hi: "विद्यार्थी / छात्र", kn: "ವಿದ್ಯಾರ್ಥಿ" } },
+                    { val: "worker", label: { en: "Daily Wage / Worker", hi: "श्रमिक / दैनिक मजदूर", kn: "ದೈನಂದಿನ ಕಾರ್ಮಿಕ" } },
+                    { val: "self_employed", label: { en: "Self-Employed / Artisan", hi: "स्वरोजगार / कारीगर", kn: "ಸ್ವಯಂ ಉದ್ಯೋಗಿ" } },
+                    { val: "senior_citizen", label: { en: "Senior Citizen / Retired", hi: "वरिष्ठ नागरिक / सेवानिवृत्त", kn: "ಹಿರಿಯ ನಾಗರಿಕ" } },
                   ].map((item) => (
                     <button
                       key={item.val}
                       type="button"
                       onClick={() => handleFieldChange("occupation", item.val)}
-                      className={`p-3 rounded-xl border text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                      className={`p-3 rounded-xl border text-xs sm:text-sm font-semibold transition-all cursor-pointer text-left ${
                         profile.occupation === item.val
                           ? "border-blue-600 bg-blue-50 text-blue-900 shadow-sm"
                           : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
@@ -197,7 +231,7 @@ function WizardContent() {
             {steps[currentStep].fields.includes("age") && (
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-900">
-                  {locale === "hi" ? "आयु (वर्षों में)" : locale === "kn" ? "ವಯಸ್ಸು (ವರ್ಷಗಳಲ್ಲಿ)" : "Age (in years)"}: <span className="text-gov-blue">{profile.age}</span>
+                  {locale === "hi" ? "आयु (वर्षों में)" : locale === "kn" ? "ವಯಸ್ಸು (ವರ್ಷಗಳಲ್ಲಿ)" : "Age (in completed years)"}: <span className="text-gov-blue font-bold text-base">{profile.age}</span>
                 </label>
                 <input
                   type="range"
@@ -205,8 +239,14 @@ function WizardContent() {
                   max="95"
                   value={profile.age}
                   onChange={(e) => handleFieldChange("age", parseInt(e.target.value))}
-                  className="w-full accent-blue-600 cursor-pointer"
+                  className="w-full accent-blue-600 cursor-pointer h-2 bg-slate-200 rounded-lg"
                 />
+                <div className="flex justify-between text-[11px] text-slate-400 font-mono">
+                  <span>5 yrs</span>
+                  <span>18 yrs</span>
+                  <span>60 yrs (Senior)</span>
+                  <span>95 yrs</span>
+                </div>
               </div>
             )}
 
@@ -218,14 +258,14 @@ function WizardContent() {
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { val: "rural", label: { en: "Rural (Village / Panchayat)", hi: "ग्रामीण (गाँव)", kn: "ಗ್ರಾಮೀಣ (ಹಳ್ಳಿ)" } },
-                    { val: "urban", label: { en: "Urban (Town / City)", hi: "शहरी (शहर)", kn: "ನಗರ ಪ್ರದೇಶ" } },
+                    { val: "rural", label: { en: "Rural (Village / Gram Panchayat)", hi: "ग्रामीण (गाँव / ग्राम पंचायत)", kn: "ಗ್ರಾಮೀಣ (ಗ್ರಾಮ ಪಂಚಾಯತ್)" } },
+                    { val: "urban", label: { en: "Urban (City / Municipality)", hi: "शहरी (शहर / नगरपालिका)", kn: "ನಗರ (ಮುನ್ಸಿಪಾಲಿಟಿ)" } },
                   ].map((item) => (
                     <button
                       key={item.val}
                       type="button"
                       onClick={() => handleFieldChange("residence_area", item.val)}
-                      className={`p-3 rounded-xl border text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                      className={`p-3.5 rounded-xl border text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                         profile.residence_area === item.val
                           ? "border-blue-600 bg-blue-50 text-blue-900 shadow-sm"
                           : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
@@ -241,130 +281,162 @@ function WizardContent() {
             {/* Social Category */}
             {steps[currentStep].fields.includes("social_category") && (
               <div className="space-y-2">
-                <label className="block text-sm font-bold text-slate-900">
-                  {locale === "hi" ? "सामाजिक वर्ग / श्रेणी" : locale === "kn" ? "ಸಾಮಾಜಿಕ ವರ್ಗ" : "Social Category"}
-                </label>
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                  {["GEN", "SC", "ST", "OBC", "EWS"].map((cat) => (
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-bold text-slate-900">
+                    {locale === "hi" ? "सामाजिक वर्ग" : locale === "kn" ? "ಸಾಮಾಜಿಕ ವರ್ಗ" : "Social Category"}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => toggleWhy("social_category")}
+                    className="text-xs text-gov-blue hover:underline inline-flex items-center space-x-1 cursor-pointer"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    <span>{t("wizard.why_asking")}</span>
+                  </button>
+                </div>
+
+                {showWhyAsking === "social_category" && (
+                  <div className="bg-slate-50 p-2.5 rounded-lg text-xs text-slate-600 border border-slate-200">
+                    Certain welfare schemes (such as the Post Matric Scholarship for SC Students) are designated by Parliament exclusively for affirmative action groups.
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { val: "GEN", label: "General" },
+                    { val: "OBC", label: "OBC" },
+                    { val: "SC", label: "SC" },
+                    { val: "ST", label: "ST" },
+                  ].map((item) => (
                     <button
-                      key={cat}
+                      key={item.val}
                       type="button"
-                      onClick={() => handleFieldChange("social_category", cat)}
-                      className={`p-2.5 rounded-xl border text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-                        profile.social_category === cat
+                      onClick={() => handleFieldChange("social_category", item.val)}
+                      className={`p-3 rounded-xl border text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                        profile.social_category === item.val
                           ? "border-blue-600 bg-blue-50 text-blue-900 shadow-sm"
                           : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
                       }`}
                     >
-                      {cat}
+                      {item.label}
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Annual Income */}
+            {/* Financial Details */}
             {steps[currentStep].fields.includes("annual_income_inr") && (
-              <div className="space-y-2">
-                <label className="block text-sm font-bold text-slate-900">
-                  {locale === "hi" ? "वार्षिक पारिवारिक आय (रुपये में)" : locale === "kn" ? "ವಾರ್ಷಿಕ ಕುಟುಂಬದ ಆದಾಯ (ರೂ.)" : "Annual Household Income (INR)"}
-                </label>
-                <input
-                  type="number"
-                  value={profile.annual_income_inr}
-                  onChange={(e) => handleFieldChange("annual_income_inr", parseFloat(e.target.value) || 0)}
-                  placeholder="e.g. 150000"
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
-              </div>
-            )}
-
-            {/* BPL Card & Tax Payer */}
-            {steps[currentStep].fields.includes("is_bpl_card_holder") && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div className="space-y-2">
                   <label className="block text-sm font-bold text-slate-900">
-                    {locale === "hi" ? "क्या आपके पास बीपीएल राशन कार्ड है?" : locale === "kn" ? "ಬಿಪಿಎಲ್ ಕಾರ್ಡ್ ಹೊಂದಿದ್ದೀರಾ?" : "Hold a BPL / Antyodaya Card?"}
+                    {locale === "hi" ? "वार्षिक पारिवारिक आय" : locale === "kn" ? "ವಾರ್ಷಿಕ ಕುಟುಂಬ ಆದಾಯ" : "Annual Household Income (in INR)"}: <span className="text-gov-blue font-bold">₹{profile.annual_income_inr.toLocaleString("en-IN")}</span>
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleFieldChange("is_bpl_card_holder", true)}
-                      className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer ${
-                        profile.is_bpl_card_holder ? "border-emerald-600 bg-emerald-50 text-emerald-900" : "border-slate-200"
-                      }`}
-                    >
-                      Yes
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleFieldChange("is_bpl_card_holder", false)}
-                      className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer ${
-                        !profile.is_bpl_card_holder ? "border-red-600 bg-red-50 text-red-900" : "border-slate-200"
-                      }`}
-                    >
-                      No
-                    </button>
+                  <input
+                    type="range"
+                    min="30000"
+                    max="1000000"
+                    step="10000"
+                    value={profile.annual_income_inr}
+                    onChange={(e) => handleFieldChange("annual_income_inr", parseInt(e.target.value))}
+                    className="w-full accent-blue-600 cursor-pointer h-2 bg-slate-200 rounded-lg"
+                  />
+                  <div className="flex justify-between text-[11px] text-slate-400 font-mono">
+                    <span>₹30,000</span>
+                    <span>₹2,50,000 (PMS-SC Limit)</span>
+                    <span>₹10,00,000</span>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-slate-900">
-                    {locale === "hi" ? "क्या आप आयकर दाता हैं?" : locale === "kn" ? "ಆದಾಯ ತೆರಿಗೆ ಪಾವತಿದಾರರೇ?" : "Pay Income Tax?"}
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleFieldChange("is_tax_payer", true)}
-                      className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer ${
-                        profile.is_tax_payer ? "border-blue-600 bg-blue-50 text-blue-900" : "border-slate-200"
-                      }`}
-                    >
-                      Yes
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleFieldChange("is_tax_payer", false)}
-                      className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer ${
-                        !profile.is_tax_payer ? "border-emerald-600 bg-emerald-50 text-emerald-900" : "border-slate-200"
-                      }`}
-                    >
-                      No
-                    </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-800">
+                      {locale === "hi" ? "क्या आपके पास बीपीएल / राशन कार्ड है?" : locale === "kn" ? "ಬಿಪಿಎಲ್ ಕಾರ್ಡ್ ಹೊಂದಿದ್ದೀರಾ?" : "BPL / Ration Card Holder?"}
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleFieldChange("is_bpl_card_holder", true)}
+                        className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer ${
+                          profile.is_bpl_card_holder ? "border-emerald-600 bg-emerald-50 text-emerald-900" : "border-slate-200"
+                        }`}
+                      >
+                        Yes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleFieldChange("is_bpl_card_holder", false)}
+                        className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer ${
+                          !profile.is_bpl_card_holder ? "border-red-600 bg-red-50 text-red-900" : "border-slate-200"
+                        }`}
+                      >
+                        No
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-800">
+                      {locale === "hi" ? "क्या परिवार में कोई आयकर दाता है?" : locale === "kn" ? "ಕುಟುಂಬದಲ್ಲಿ ಯಾರಾದರೂ ಆದಾಯ ತೆರಿಗೆ ಪಾವತಿಸುವರೇ?" : "Any Income Tax Payer in Family?"}
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleFieldChange("is_tax_payer", true)}
+                        className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer ${
+                          profile.is_tax_payer ? "border-blue-600 bg-blue-50 text-blue-900" : "border-slate-200"
+                        }`}
+                      >
+                        Yes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleFieldChange("is_tax_payer", false)}
+                        className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer ${
+                          !profile.is_tax_payer ? "border-emerald-600 bg-emerald-50 text-emerald-900" : "border-slate-200"
+                        }`}
+                      >
+                        No
+                      </button>
+                    </div>
                   </div>
                 </div>
+
+                {/* Landholding if farmer */}
+                {profile.occupation === "farmer" && (
+                  <div className="space-y-2 bg-blue-50/60 p-4 rounded-xl border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-slate-900">
+                        {locale === "hi" ? "कृषि भूमि का स्वामित्व (हेक्टेयर में)" : locale === "kn" ? "ಕೃಷಿ ಭೂಹಿಡುವಳಿ (ಹೆಕ್ಟೇರ್)" : "Cultivable Agricultural Land (in Hectares)"}
+                      </label>
+                      <span className="text-[11px] text-blue-700 font-semibold">1 Hectare ≈ 2.47 Acres</span>
+                    </div>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={profile.landholding_hectares}
+                      onChange={(e) => handleFieldChange("landholding_hectares", parseFloat(e.target.value) || 0)}
+                      placeholder="e.g. 1.2"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
+                    />
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Landholding (if farmer) */}
-            {steps[currentStep].fields.includes("landholding_hectares") && profile.occupation === "farmer" && (
-              <div className="space-y-2 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-                <label className="block text-sm font-bold text-slate-900">
-                  {locale === "hi" ? "कृषि भूमि का स्वामित्व (हेक्टेयर में)" : locale === "kn" ? "ಕೃಷಿ ಭೂಹಿಡುವಳಿ (ಹೆಕ್ಟೇರ್)" : "Cultivable Agricultural Land (Hectares)"}
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={profile.landholding_hectares}
-                  onChange={(e) => handleFieldChange("landholding_hectares", parseFloat(e.target.value) || 0)}
-                  placeholder="e.g. 1.5"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
-                />
-              </div>
-            )}
-
-            {/* Pregnancy & Disability */}
+            {/* Special Circumstances */}
             {steps[currentStep].fields.includes("is_pregnant_or_lactating") && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div className="space-y-2">
                   <label className="block text-sm font-bold text-slate-900">
-                    {locale === "hi" ? "गर्भवती या स्तनपान कराने वाली माता?" : locale === "kn" ? "ಗರ್ಭಿಣಿ ಅಥವಾ ಹಾಲುಣಿಸುವ ತಾಯಿಯೇ?" : "Pregnant or Lactating Mother?"}
+                    {locale === "hi" ? "क्या परिवार में कोई गर्भवती या स्तनपान कराने वाली माता हैं?" : locale === "kn" ? "ಕುಟುಂಬದಲ್ಲಿ ಯಾರಾದರೂ ಗರ್ಭಿಣಿ ಅಥವಾ ಹಾಲುಣಿಸುವ ತಾಯಿಯರೇ?" : "Pregnant or Lactating Mother in Family?"}
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => handleFieldChange("is_pregnant_or_lactating", true)}
-                      className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer ${
+                      className={`p-3 rounded-xl border text-xs font-semibold cursor-pointer ${
                         profile.is_pregnant_or_lactating ? "border-emerald-600 bg-emerald-50 text-emerald-900" : "border-slate-200"
                       }`}
                     >
@@ -373,7 +445,7 @@ function WizardContent() {
                     <button
                       type="button"
                       onClick={() => handleFieldChange("is_pregnant_or_lactating", false)}
-                      className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer ${
+                      className={`p-3 rounded-xl border text-xs font-semibold cursor-pointer ${
                         !profile.is_pregnant_or_lactating ? "border-slate-600 bg-slate-50 text-slate-900" : "border-slate-200"
                       }`}
                     >
@@ -384,7 +456,7 @@ function WizardContent() {
 
                 <div className="space-y-2">
                   <label className="block text-sm font-bold text-slate-900">
-                    {locale === "hi" ? "दिव्यांगजन (न्यूनतम 40%)?" : locale === "kn" ? "ವಿಕಲಚೇತನರೇ (ಕನಿಷ್ಠ 40%)?" : "Person with Disability (min 40%)?"}
+                    {locale === "hi" ? "दिव्यांगजन (न्यूनतम 40% बेंचमार्क दिव्यांगता)?" : locale === "kn" ? "ವಿಕಲಚೇತನರೇ (ಕನಿಷ್ಠ 40% ಅಂಗವೈಕಲ್ಯ ಪ್ರಮಾಣಪತ್ರ)?" : "Person with Benchmark Disability (min 40%)?"}
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
@@ -393,7 +465,7 @@ function WizardContent() {
                         handleFieldChange("is_disabled", true);
                         handleFieldChange("disability_percentage", 45);
                       }}
-                      className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer ${
+                      className={`p-3 rounded-xl border text-xs font-semibold cursor-pointer ${
                         profile.is_disabled ? "border-emerald-600 bg-emerald-50 text-emerald-900" : "border-slate-200"
                       }`}
                     >
@@ -405,7 +477,7 @@ function WizardContent() {
                         handleFieldChange("is_disabled", false);
                         handleFieldChange("disability_percentage", 0);
                       }}
-                      className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer ${
+                      className={`p-3 rounded-xl border text-xs font-semibold cursor-pointer ${
                         !profile.is_disabled ? "border-slate-600 bg-slate-50 text-slate-900" : "border-slate-200"
                       }`}
                     >
@@ -423,7 +495,7 @@ function WizardContent() {
               <button
                 type="button"
                 onClick={() => setCurrentStep(currentStep - 1)}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 flex items-center space-x-1 cursor-pointer"
+                className="px-4 py-2 border border-slate-300 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 flex items-center space-x-1 cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span>{t("wizard.prev_btn")}</span>
@@ -434,7 +506,7 @@ function WizardContent() {
               <button
                 type="button"
                 onClick={() => setCurrentStep(currentStep + 1)}
-                className="px-6 py-2.5 bg-gov-blue hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center space-x-1.5 shadow-sm cursor-pointer"
+                className="px-6 py-2.5 bg-gov-blue hover:bg-blue-700 text-white rounded-xl text-sm font-semibold flex items-center space-x-1.5 shadow-sm cursor-pointer"
               >
                 <span>{t("wizard.next_btn")}</span>
                 <ArrowRight className="w-4 h-4" />
@@ -444,10 +516,10 @@ function WizardContent() {
                 type="button"
                 disabled={loading}
                 onClick={handleEvaluate}
-                className="px-8 py-3 bg-gov-green hover:bg-emerald-700 text-white rounded-lg text-sm font-bold flex items-center space-x-2 shadow-md cursor-pointer disabled:opacity-50"
+                className="px-8 py-3 bg-gov-green hover:bg-emerald-700 text-white rounded-xl text-sm font-bold flex items-center space-x-2 shadow-md cursor-pointer disabled:opacity-50"
               >
                 {loading ? (
-                  <span>Evaluating...</span>
+                  <span>Evaluating Deterministic Rules...</span>
                 ) : (
                   <>
                     <CheckCircle2 className="w-5 h-5 text-emerald-200" />
@@ -462,26 +534,26 @@ function WizardContent() {
         /* Evaluation Results View */
         <div className="space-y-8">
           <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
                 <h2 className="text-2xl font-extrabold text-slate-900">
                   {t("wizard.results_title")}
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Evaluated using deterministic AST logic. Zero guesses.
+                  Computed via deterministic rule trees based on official ministry gazettes. Zero hallucinations.
                 </p>
               </div>
               <button
                 onClick={resetWizard}
-                className="inline-flex items-center space-x-1 px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                className="inline-flex items-center space-x-1.5 px-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-sm"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Change Answers</span>
+                <span>Edit Profile &amp; Answers</span>
               </button>
             </div>
           </div>
 
-          {/* 1. Eligible Schemes */}
+          {/* 1. Fully Eligible Schemes */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2 text-emerald-800">
               <CheckCircle2 className="w-5 h-5 text-emerald-600" />
@@ -491,22 +563,22 @@ function WizardContent() {
             </div>
 
             {results.eligible_schemes.length === 0 ? (
-              <p className="text-xs text-slate-500 italic bg-white p-4 rounded-xl border border-slate-200">
-                No schemes completely satisfied based on provided criteria. Check potentially eligible schemes below.
+              <p className="text-xs text-slate-500 italic bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                No schemes completely satisfied based on provided criteria. Review the schemes below that require additional verification or missing inputs.
               </p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {results.eligible_schemes.map((item) => (
                   <div
                     key={item.scheme_id}
-                    className="bg-emerald-50/50 border-2 border-emerald-500 rounded-xl p-5 space-y-3"
+                    className="bg-emerald-50/60 border-2 border-emerald-500 rounded-2xl p-5 space-y-4 shadow-sm"
                   >
                     <div className="flex justify-between items-start">
-                      <h4 className="font-bold text-base text-slate-900">
+                      <h4 className="font-bold text-base text-slate-900 leading-snug">
                         {item.scheme_title[locale] || item.scheme_title.en}
                       </h4>
-                      <span className="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full uppercase">
-                        100% Eligible
+                      <span className="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full uppercase whitespace-nowrap">
+                        Eligible
                       </span>
                     </div>
 
@@ -515,20 +587,20 @@ function WizardContent() {
                         {t("wizard.why_eligible")}:
                       </span>
                       {item.passed_criteria.map((c) => (
-                        <div key={c.criterion_id} className="flex items-center space-x-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <div key={c.criterion_id} className="flex items-start space-x-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
                           <span>{c.explanation[locale] || c.explanation.en}</span>
                         </div>
                       ))}
                     </div>
 
-                    <div className="pt-2">
+                    <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between">
                       <Link
                         href={`/schemes/${item.scheme_slug || item.scheme_id}`}
-                        className="inline-flex items-center space-x-1 text-xs font-semibold text-emerald-800 hover:text-emerald-950 underline"
+                        className="inline-flex items-center space-x-1 text-xs font-bold text-emerald-800 hover:text-emerald-950 underline"
                       >
-                        <span>View Application Procedure & Checklist</span>
-                        <ArrowRight className="w-3 h-3" />
+                        <span>View Preparation Steps</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </Link>
                     </div>
                   </div>
@@ -551,37 +623,44 @@ function WizardContent() {
                 {results.potentially_eligible_schemes.map((item) => (
                   <div
                     key={item.scheme_id}
-                    className="bg-amber-50/50 border border-amber-300 rounded-xl p-5 space-y-3"
+                    className="bg-amber-50/50 border border-amber-300 rounded-2xl p-5 space-y-4 shadow-sm"
                   >
                     <div className="flex justify-between items-start">
-                      <h4 className="font-bold text-base text-slate-900">
+                      <h4 className="font-bold text-base text-slate-900 leading-snug">
                         {item.scheme_title[locale] || item.scheme_title.en}
                       </h4>
-                      <span className="text-[10px] font-bold bg-amber-600 text-white px-2 py-0.5 rounded-full uppercase">
-                        Needs Info
+                      <span className="text-[10px] font-bold bg-amber-600 text-white px-2 py-0.5 rounded-full uppercase whitespace-nowrap">
+                        Needs More Info
                       </span>
                     </div>
 
-                    <div className="text-xs text-amber-900 space-y-1">
-                      <p className="font-medium">
+                    <div className="text-xs text-amber-900 space-y-2">
+                      <p className="font-medium leading-relaxed">
                         {item.summary_explanation[locale] || item.summary_explanation.en}
                       </p>
-                      <div className="flex flex-wrap gap-1 pt-1">
-                        {item.required_missing_fields.map((f) => (
-                          <span key={f} className="bg-amber-100 text-amber-900 text-[10px] px-2 py-0.5 rounded font-mono">
-                            {f}
+                      {item.required_missing_fields?.length > 0 && (
+                        <div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider block text-amber-800">
+                            {t("wizard.missing_info")}:
                           </span>
-                        ))}
-                      </div>
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {item.required_missing_fields.map((f) => (
+                              <span key={f} className="bg-amber-100 text-amber-900 text-[10px] px-2 py-0.5 rounded font-mono">
+                                {f}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="pt-2">
+                    <div className="pt-2 border-t border-amber-200 flex items-center justify-between">
                       <Link
                         href={`/schemes/${item.scheme_slug || item.scheme_id}`}
-                        className="inline-flex items-center space-x-1 text-xs font-semibold text-amber-900 hover:underline"
+                        className="inline-flex items-center space-x-1 text-xs font-semibold text-amber-800 hover:text-amber-950 underline"
                       >
-                        <span>Inspect Scheme Criteria</span>
-                        <ArrowRight className="w-3 h-3" />
+                        <span>Check Verification Requirements</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </Link>
                     </div>
                   </div>
@@ -590,11 +669,11 @@ function WizardContent() {
             </div>
           )}
 
-          {/* 3. Ineligible Schemes */}
-          {results.ineligible_schemes.length > 0 && (
+          {/* 3. Ineligible Schemes (Auditable Reasons) */}
+          {results.ineligible_schemes && results.ineligible_schemes.length > 0 && (
             <div className="space-y-4">
-              <div className="flex items-center space-x-2 text-slate-600">
-                <XCircle className="w-5 h-5 text-red-500" />
+              <div className="flex items-center space-x-2 text-slate-700">
+                <XCircle className="w-5 h-5 text-slate-400" />
                 <h3 className="font-bold text-lg text-slate-900">
                   {t("wizard.ineligible_heading")} ({results.ineligible_schemes.length})
                 </h3>
@@ -604,24 +683,24 @@ function WizardContent() {
                 {results.ineligible_schemes.map((item) => (
                   <div
                     key={item.scheme_id}
-                    className="bg-white border border-slate-200 rounded-xl p-5 space-y-3 opacity-80"
+                    className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3"
                   >
                     <div className="flex justify-between items-start">
-                      <h4 className="font-bold text-base text-slate-800">
+                      <h4 className="font-semibold text-sm text-slate-800">
                         {item.scheme_title[locale] || item.scheme_title.en}
                       </h4>
                       <span className="text-[10px] font-bold bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full uppercase">
-                        Ineligible
+                        Not Eligible
                       </span>
                     </div>
 
-                    <div className="space-y-1.5 text-xs text-slate-600">
-                      <span className="font-semibold block text-[11px] uppercase tracking-wide text-red-700">
+                    <div className="space-y-1 text-xs text-slate-500">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 block">
                         {t("wizard.why_ineligible")}:
                       </span>
-                      {item.failed_criteria.map((c) => (
-                        <div key={c.criterion_id} className="flex items-center space-x-1.5 text-red-800">
-                          <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                      {item.failed_criteria?.map((c) => (
+                        <div key={c.criterion_id} className="flex items-start space-x-1.5 text-red-700">
+                          <XCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                           <span>{c.explanation[locale] || c.explanation.en}</span>
                         </div>
                       ))}
@@ -639,7 +718,7 @@ function WizardContent() {
 
 export default function WizardPage() {
   return (
-    <Suspense fallback={<div className="p-12 text-center text-slate-500 font-medium">Loading Eligibility Wizard...</div>}>
+    <Suspense fallback={<div className="py-20 text-center text-sm text-slate-500">Loading Eligibility Wizard...</div>}>
       <WizardContent />
     </Suspense>
   );
