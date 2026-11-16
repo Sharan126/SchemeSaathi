@@ -67,6 +67,11 @@ class SchemeRepository:
         return cls._versions_store.get(norm_id, [])
 
     @classmethod
+    def get_all_with_criteria(cls) -> List[Dict[str, Any]]:
+        cls.initialize_store()
+        return cls.get_all_published()
+
+    @classmethod
     def get_all_published(
         cls,
         category: Optional[str] = None,

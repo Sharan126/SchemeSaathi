@@ -5,6 +5,7 @@ import {
   DocumentDirectoryItem,
   VoiceChatResponse,
   VoiceInterviewState,
+  VoiceMessage,
 } from "@/types";
 import { STATIC_SCHEMES, STATIC_DOCUMENTS } from "@/data/staticFallback";
 
@@ -299,10 +300,14 @@ function synthesizeClientFallback(query: string, locale: string = "en"): Grounde
 
   // 1. Greetings & Bot Identity
   const greetings = ["hi", "hello", "hey", "namaste", "namaskara", "namaskar", "good morning", "good evening"];
-  const identity = ["who are you", "what is your name", "what can you do", "help"];
+  const identity = ["who are you", "what is your name", "what can you do"];
   const isGreeting =
     greetings.some((g) => qNorm === g || qNorm.startsWith(g + " ")) ||
-    identity.some((id) => qNorm.includes(id));
+    identity.some((id) => qNorm === id || qNorm.includes(id)) ||
+    qNorm === "help" ||
+    qNorm === "help me" ||
+    qNorm === "ಸಹಾಯ" ||
+    qNorm === "मदद";
 
   if (isGreeting) {
     const msgs: Record<string, string> = {
@@ -599,9 +604,16 @@ export async function fetchDocumentDirectory(): Promise<DocumentDirectoryItem[]>
 export async function sendVoiceChat(
   query: string,
   language: string = "en",
-  targetSchemeId?: string
+  targetSchemeId?: string,
+  history?: VoiceMessage[],
+  profileContext?: Record<string, any>,
+  simplicityMode: boolean = false,
+  speechSpeed: number = 1.0
 ): Promise<VoiceChatResponse> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
     const res = await fetch(`${API_BASE}/voice/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -609,16 +621,23 @@ export async function sendVoiceChat(
         query,
         language,
         target_scheme_id: targetSchemeId,
+        conversation_history: history || [],
+        profile_context: profileContext || {},
+        simplicity_mode: simplicityMode,
+        speech_speed: speechSpeed,
       }),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
+
     if (res.ok) {
       return await res.json();
     }
   } catch (err) {
-    console.warn("Backend voice chat failed, generating local voice response", err);
+    console.warn("Backend voice chat failed or timed out, generating grounded local voice response", err);
   }
 
-  // Local fallback response
+  // Local fallback response with dynamic contextual grounding
   const grounded = synthesizeClientFallback(query, language);
   let spoken = grounded.answer
     .replace(/https?:\/\/\S+/g, "")
@@ -632,17 +651,28 @@ export async function sendVoiceChat(
     spoken = spoken.replace(/Rupees/g, "रुपये");
   }
 
+  const activeScheme = (grounded.citations && grounded.citations.length > 0)
+    ? grounded.citations[0].scheme_id
+    : targetSchemeId;
+
+  const dynamicPrompts: Record<string, string[]> = {
+    kn: activeScheme === "pm-kisan"
+      ? ["ನನ್ನ ಅರ್ಹತೆ ಪರೀಕ್ಷಿಸಿ", "ಯಾವ ದಾಖಲೆಗಳು ಬೇಕು?", "ವರ್ಷಕ್ಕೆ ಎಷ್ಟು ಹಣ ಸಿಗುತ್ತದೆ?"]
+      : ["ರೈತರ ಯೋಜನೆಗಳು", "ಆರೋಗ್ಯ ಕಾರ್ಡ್", "ವಿದ್ಯಾರ್ಥಿವೇತನಗಳು"],
+    hi: activeScheme === "pm-kisan"
+      ? ["मेरी पात्रता जांचें", "आवश्यक दस्तावेज़", "सालाना कितना लाभ मिलेगा?"]
+      : ["किसानों की योजनाएं", "स्वास्थ्य कार्ड", "छात्रवृत्ति योजनाएं"],
+    en: activeScheme === "pm-kisan"
+      ? ["Check my eligibility", "What documents are needed?", "How much is paid annually?"]
+      : ["Schemes for farmers", "Healthcare schemes", "Student scholarships"],
+  };
+
   return {
-    spoken_text: spoken.slice(0, 300),
+    spoken_text: spoken.slice(0, 320),
     display_text: grounded.answer,
     language,
     dialogue_mode: "DISCOVERY",
-    suggested_spoken_prompts:
-      language === "kn"
-        ? ["ಅರ್ಹತೆ ಪರೀಕ್ಷಿಸಿ", "ದಾಖಲೆಗಳ ಮಾಹಿತಿ", "ಪಿಎಂ-ಕಿಸಾನ್ ಯೋಜನೆ"]
-        : language === "hi"
-        ? ["पात्रता जांचें", "आवश्यक दस्तावेज़", "पीएम-किसान योजना"]
-        : ["Check my eligibility", "What documents are needed?", "PM-KISAN scheme"],
+    suggested_spoken_prompts: dynamicPrompts[language] || dynamicPrompts.en,
     citations: (grounded.citations || []).map((c) => ({
       scheme_id: c.scheme_id,
       scheme_name: c.scheme_name,
@@ -650,6 +680,8 @@ export async function sendVoiceChat(
       source_reference_date: c.source_reference_date,
     })),
     confidence_score: grounded.confidence_score,
+    active_scheme_id: activeScheme,
+    extracted_profile: profileContext || {},
   };
 }
 

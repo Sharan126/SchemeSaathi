@@ -128,6 +128,14 @@ export interface SpokenCitation {
   source_reference_date: string;
 }
 
+export interface VoiceMessage {
+  role: "citizen" | "assistant";
+  content: string;
+  timestamp?: string;
+  scheme_id?: string;
+  intent?: string;
+}
+
 export interface VoiceChatResponse {
   spoken_text: string;
   display_text: string;
@@ -137,6 +145,10 @@ export interface VoiceChatResponse {
   citations: SpokenCitation[];
   action_type?: string;
   confidence_score: number;
+  active_scheme_id?: string;
+  detected_intent?: string;
+  extracted_profile?: Record<string, any>;
+  eligible_schemes?: string[];
 }
 
 export interface SpokenEligibilityQuestion {

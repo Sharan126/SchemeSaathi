@@ -33,9 +33,11 @@ class NaturalVoicePhoneticsProvider:
         # 1. Remove markdown links [Label](url) -> keep Label
         clean = re.sub(r"\[([^\]]+)\]\([^\)]+\)", r"\1", text)
 
-        # 2. Strip raw URLs (never speak http/www out loud)
+        # 2. Strip raw URLs and web domains (never speak http/www/.gov out loud)
         clean = re.sub(r"https?://\S+", "", clean)
         clean = re.sub(r"www\.\S+", "", clean)
+        clean = re.sub(r"\b[\w\-]+\.gov\.in\S*", "", clean)
+        clean = re.sub(r"\b[\w\-]+\.(?:com|org|nic\.in)\S*", "", clean)
 
         # 3. Strip bold/italic markdown
         clean = clean.replace("**", "").replace("*", "").replace("##", "")
@@ -67,6 +69,8 @@ class NaturalVoicePhoneticsProvider:
                 "CSC": "ಗ್ರಾಮ ಒನ್ ಅಥವಾ ಸಿಎಸ್ಸಿ ಕೇಂದ್ರ",
                 "Rs.": "ರೂಪಾಯಿ ",
                 "₹": "ರೂಪಾಯಿ ",
+                "ರೂ.": "ರೂಪಾಯಿ ",
+                "ರೂ": "ರೂಪಾಯಿ ",
             }
             for k, v in acronyms_kn.items():
                 clean = clean.replace(k, v)

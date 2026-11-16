@@ -22,6 +22,7 @@ from app.modules.voice.interfaces import (
     VoiceChatRequest,
     SynthesisRequest,
     VoiceDialogueMode,
+    VoiceMessage,
 )
 from app.modules.voice.conversation_service import VoiceConversationService
 from app.modules.voice.eligibility_interviewer import VoiceEligibilityInterviewer
@@ -215,3 +216,298 @@ class TestVoiceEndpoints:
         )
         assert "https://" not in data["spoken_text"]
         assert data["suggested_voice_lang"] == "en-IN"
+
+
+class TestDiverseSpokenQuestionsAndContext:
+    """
+    32 Diverse, Real-World Spoken Questions across Kannada, Hindi, and English (Part 8 Validation).
+    Ensures question-specific reasoning, AST eligibility evaluation, context memory, and zero repetition.
+    """
+
+    # 1. Farmer Queries
+    def test_q01_kannada_farmer_schemes(self):
+        resp = VoiceConversationService.answer_spoken_query("ರೈತರಿಗೆ ಯಾವ ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು ಲಭ್ಯವಿವೆ?", language="kn")
+        assert "ಪಿಎಂ" in resp.spoken_text or "ಕಿಸಾನ್" in resp.spoken_text or "ರೈತ" in resp.spoken_text
+        assert resp.active_scheme_id == "pm-kisan"
+
+    def test_q02_english_farmer_age_benefits(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "I am a 55-year-old farmer. What benefits can I receive?",
+            language="en"
+        )
+        assert "55" in str(resp.extracted_profile.get("age"))
+        assert resp.extracted_profile.get("occupation") == "farmer"
+        assert len(resp.eligible_schemes) > 0
+        assert "qualify" in resp.spoken_text.lower() or "scheme" in resp.spoken_text.lower()
+
+    # 2. Education & Scholarships
+    def test_q03_english_daughter_education(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "Can I get financial assistance for my daughter's education?",
+            language="en"
+        )
+        assert resp.active_scheme_id in ("sukanya-samriddhi", "pms-sc")
+        assert len(resp.spoken_text) > 20
+
+    def test_q04_hindi_income_family_schemes(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "मेरी वार्षिक पारिवारिक आय 1.5 लाख है। मुझे कौन सी योजनाएं देखनी चाहिए?",
+            language="hi"
+        )
+        assert resp.extracted_profile.get("annual_income_inr") == 150000
+        assert len(resp.eligible_schemes) > 0
+
+    # 3. Simple Language Explanations
+    def test_q05_kannada_pm_kisan_simple_language(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "ಪಿಎಂ-ಕಿಸಾನ್ ಯೋಜನೆಯನ್ನು ಸರಳ ಭಾಷೆಯಲ್ಲಿ ವಿವರಿಸಿ.",
+            language="kn",
+            simplicity_mode=True
+        )
+        assert "ಪಿಎಂ" in resp.spoken_text
+        assert len(resp.spoken_text) > 20
+
+    # 4. Ineligibility Reasons
+    def test_q06_english_ineligibility_reasons(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "Why am I not eligible for this scheme?",
+            language="en",
+            target_scheme_id="pm-kisan",
+            profile_context={"is_tax_payer": True}
+        )
+        assert "not" in resp.spoken_text.lower() or "exclusion" in resp.spoken_text.lower() or "statutory" in resp.spoken_text.lower()
+
+    # 5. Documents & Application Steps
+    def test_q07_kannada_documents_needed(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "ನನಗೆ ಯಾವ ದಾಖಲೆಗಳು ಬೇಕಾಗುತ್ತವೆ?",
+            language="kn",
+            target_scheme_id="pm-kisan"
+        )
+        assert "ದಾಖಲೆ" in resp.spoken_text or "ಆಧಾರ್" in resp.display_text or "ಪಾಸ್‌ಬುಕ್" in resp.display_text
+
+    def test_q08_hindi_where_to_apply(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "मैं इस योजना के लिए कहाँ आवेदन कर सकता हूँ?",
+            language="hi",
+            target_scheme_id="ayushman-bharat-pmjay"
+        )
+        assert "सीएससी" in resp.spoken_text or "पोर्टल" in resp.spoken_text or "केंद्र" in resp.spoken_text
+
+    # 6. Comparisons & Related Schemes
+    def test_q09_english_similar_schemes(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "Are there any similar schemes for farmers?",
+            language="en",
+            target_scheme_id="pm-kisan"
+        )
+        assert "scheme" in resp.spoken_text.lower()
+        assert resp.detected_intent == "COMPARISON"
+
+    # 7. Senior Citizens
+    def test_q10_hindi_senior_citizen_benefits(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "वरिष्ठ नागरिकों के लिए क्या लाभ उपलब्ध हैं?",
+            language="hi"
+        )
+        assert resp.active_scheme_id == "ignoaps"
+        assert "पेंशन" in resp.spoken_text or "वृद्धावस्था" in resp.display_text
+
+    # 8. Multi-Turn Context Memory & Pronoun Resolution
+    def test_q11_english_context_followup(self):
+        # Turn 1: Farmer context
+        history = [
+            VoiceMessage(role="citizen", content="I am a farmer in Karnataka", scheme_id="pm-kisan"),
+            VoiceMessage(role="assistant", content="PM-KISAN provides assistance.", scheme_id="pm-kisan"),
+        ]
+        # Turn 2: Follow-up with pronoun "What documents will I need for it?"
+        resp = VoiceConversationService.answer_spoken_query(
+            "What documents will I need for it?",
+            language="en",
+            conversation_history=history
+        )
+        assert resp.active_scheme_id == "pm-kisan"
+        assert "document" in resp.spoken_text.lower() or "aadhaar" in resp.display_text.lower()
+
+    def test_q12_kannada_context_followup_pronoun(self):
+        history = [
+            VoiceMessage(role="citizen", content="ಆಯುಷ್ಮಾನ್ ಭಾರತ್ ಯೋಜನೆ", scheme_id="ayushman-bharat-pmjay"),
+            VoiceMessage(role="assistant", content="ಆಯುಷ್ಮಾನ್ ಭಾರತ್ 5 ಲಕ್ಷ ಉಚಿತ ಚಿಕಿತ್ಸೆ ನೀಡುತ್ತದೆ.", scheme_id="ayushman-bharat-pmjay"),
+        ]
+        resp = VoiceConversationService.answer_spoken_query(
+            "ಅದಕ್ಕೆ ಅರ್ಜಿ ಹೇಗೆ ಸಲ್ಲಿಸುವುದು?",
+            language="kn",
+            conversation_history=history
+        )
+        assert resp.active_scheme_id == "ayushman-bharat-pmjay"
+        assert "ಅರ್ಜಿ" in resp.spoken_text or "ಗ್ರಾಮ ಒನ್" in resp.spoken_text or "ಸಿಎಸ್ಸಿ" in resp.spoken_text
+
+    def test_q13_hindi_context_eligibility_followup(self):
+        history = [
+            VoiceMessage(role="citizen", content="प्रधानमंत्री आवास योजना", scheme_id="pmay-g"),
+            VoiceMessage(role="assistant", content="पीएमएवाई-जी पक्के मकान के लिए सहायता देती है।", scheme_id="pmay-g"),
+        ]
+        resp = VoiceConversationService.answer_spoken_query(
+            "क्या मुझे इसके लिए लाभ मिलेगा?",
+            language="hi",
+            conversation_history=history,
+            profile_context={"has_pucca_house": False, "is_bpl_card_holder": True}
+        )
+        assert resp.active_scheme_id == "pmay-g"
+
+    # 9. Healthcare & Maternal Care
+    def test_q14_english_general_scheme_knowledge(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "What is Ayushman Bharat PM-JAY?",
+            language="en"
+        )
+        assert "5 lakh" in resp.display_text.lower() or "health" in resp.spoken_text.lower()
+
+    def test_q15_kannada_pregnant_mother_benefit(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "ಗರ್ಭಿಣಿ ತಾಯಂದಿರಿಗೆ ಸರ್ಕಾರದಿಂದ ಎಷ್ಟು ಹಣ ಸಿಗುತ್ತದೆ?",
+            language="kn"
+        )
+        assert resp.active_scheme_id == "pmmvy"
+        assert "ರೂಪಾಯಿ" in resp.spoken_text or "5000" in resp.display_text
+
+    def test_q16_hindi_sc_scholarship_income_limit(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "अनुसूचित जाति के छात्रों के लिए छात्रवृत्ति में आय सीमा क्या है?",
+            language="hi"
+        )
+        assert resp.active_scheme_id == "pms-sc"
+        assert "2.5" in resp.display_text or "छात्रवृत्ति" in resp.display_text
+
+    # 10. Rural Housing & Disabilities
+    def test_q17_english_rural_housing_pmayg(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "Can I get money to construct a house in my village?",
+            language="en"
+        )
+        assert resp.active_scheme_id == "pmay-g"
+
+    def test_q18_kannada_disability_swavlamban(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "ವಿಕಲಚೇತನರಿಗೆ ಸ್ವಾವಲಂಬನೆ ಯೋಜನೆಯಡಿ ಏನು ಸಹಾಯ ಸಿಗುತ್ತದೆ?",
+            language="kn"
+        )
+        assert resp.active_scheme_id == "divyangjan-swavlamban"
+
+    def test_q19_hindi_free_health_cover_amount(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "आयुष्मान कार्ड में कितने रुपये का मुफ्त इलाज मिलता है?",
+            language="hi"
+        )
+        assert "5 लाख" in resp.spoken_text or "5 lakh" in resp.display_text.lower() or "500000" in resp.display_text
+
+    # 11. Hoax & Viral Giveaway Interception
+    def test_q20_english_hoax_free_iphone(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "Is there a government scheme giving free iPhone?",
+            language="en"
+        )
+        assert "warning" in resp.spoken_text.lower() or "fraudulent" in resp.spoken_text.lower()
+
+    def test_q21_kannada_hoax_free_flight(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "ಸರ್ಕಾರದಿಂದ ಉಚಿತ ವಿಮಾನ ಟಿಕೆಟ್ ಸಿಗುವ ಯೋಜನೆ ಇದೆಯೇ?",
+            language="kn"
+        )
+        assert "ಎಚ್ಚರಿಕೆ" in resp.spoken_text or "ವಂಚನೆ" in resp.spoken_text
+
+    def test_q22_hindi_hoax_free_smartphone(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "क्या सरकार मुफ्त स्मार्टफोन बांट रही है?",
+            language="hi"
+        )
+        assert "चेतावनी" in resp.spoken_text or "धोखाधड़ी" in resp.spoken_text
+
+    # 12. Honest Abstention for Non-Existent Welfare
+    def test_q23_english_unknown_scheme(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "Tell me about the Mars Colonization Welfare Scheme",
+            language="en"
+        )
+        assert "could not find verified" in resp.spoken_text.lower()
+
+    # 13. Deterministic AST Disqualification
+    def test_q24_kannada_large_landholder_ineligible(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "ನನ್ನ ಬಳಿ 20 ಎಕರೆ ಜಮೀನಿದೆ ಮತ್ತು ಆದಾಯ ತೆರಿಗೆ ಕಟ್ಟುತ್ತೇನೆ, ಪಿಎಂ-ಕಿಸಾನ್ ಸಿಗುತ್ತಾ?",
+            language="kn"
+        )
+        assert resp.extracted_profile.get("is_tax_payer") is True or resp.extracted_profile.get("landholding_hectares", 0) > 2.0
+        assert "ಅರ್ಹರಾಗಿಲ್ಲ" in resp.spoken_text or "ನಿಯಮ" in resp.spoken_text
+
+    def test_q25_hindi_tax_payer_ineligible(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "मैं आयकर दाता हूँ, क्या मुझे पीएम-किसान मिलेगा?",
+            language="hi",
+            target_scheme_id="pm-kisan",
+            profile_context={"is_tax_payer": True}
+        )
+        assert "अपात्र" in resp.spoken_text or "नहीं" in resp.spoken_text
+
+    # 14. Dynamic Language Switching
+    def test_q26_language_switching(self):
+        resp_en = VoiceConversationService.answer_spoken_query("PM-KISAN overview", language="en")
+        assert resp_en.language == "en"
+
+        resp_hi = VoiceConversationService.answer_spoken_query("पीएम-किसान का विवरण", language="hi")
+        assert resp_hi.language == "hi"
+
+        resp_kn = VoiceConversationService.answer_spoken_query("ಪಿಎಂ-ಕಿಸಾನ್ ವಿವರ", language="kn")
+        assert resp_kn.language == "kn"
+
+    # 15. Simplicity Mode
+    def test_q27_kannada_explain_simply(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "ಪಿಎಂ ಕಿಸಾನ್ ಬಗ್ಗೆ ಸಾಮಾನ್ಯ ಜನರಿಗೆ ಅರ್ಥವಾಗುವಂತೆ ಸರಳವಾಗಿ ಹೇಳಿ",
+            language="kn",
+            simplicity_mode=True
+        )
+        assert len(resp.spoken_text) > 15
+        assert "https://" not in resp.spoken_text
+
+    # 16. Audio Quality: Zero Raw URLs & Spoken Phonetics
+    def test_q28_no_raw_urls_in_spoken_output(self):
+        all_schemes = ["pm-kisan", "ayushman-bharat-pmjay", "pmmvy", "pms-sc"]
+        for sid in all_schemes:
+            resp = VoiceConversationService.answer_spoken_query("How to apply", language="en", target_scheme_id=sid)
+            assert "https://" not in resp.spoken_text
+            assert "http://" not in resp.spoken_text
+            assert ".gov.in" not in resp.spoken_text
+
+    # 17. Multiple Relevant Scheme Discovery
+    def test_q29_hindi_multiple_relevant_schemes(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "गरीब ग्रामीण परिवारों के लिए कौन-कौन सी योजनाएं हैं?",
+            language="hi"
+        )
+        assert len(resp.suggested_spoken_prompts) > 0
+
+    # 18. Girl Child Welfare
+    def test_q30_english_girl_child_savings(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "How does Sukanya Samriddhi Yojana help my daughter?",
+            language="en"
+        )
+        assert resp.active_scheme_id == "sukanya-samriddhi"
+
+    # 19. Senior Pension Age Limit
+    def test_q31_kannada_old_age_pension_age_limit(self):
+        resp = VoiceConversationService.answer_spoken_query(
+            "ವೃದ್ಧಾಪ್ಯ ಪಿಂಚಣಿ ಪಡೆಯಲು ಎಷ್ಟು ವಯಸ್ಸಾಗಿರಬೇಕು?",
+            language="kn"
+        )
+        assert resp.active_scheme_id == "ignoaps"
+
+    # 20. Non-Repetition Verification
+    def test_q32_different_queries_produce_different_answers(self):
+        resp_farmer = VoiceConversationService.answer_spoken_query("Farmer support", language="en")
+        resp_health = VoiceConversationService.answer_spoken_query("Health insurance", language="en")
+        resp_scholarship = VoiceConversationService.answer_spoken_query("Student scholarship", language="en")
+        assert resp_farmer.spoken_text != resp_health.spoken_text
+        assert resp_health.spoken_text != resp_scholarship.spoken_text
+        assert resp_farmer.active_scheme_id != resp_health.active_scheme_id

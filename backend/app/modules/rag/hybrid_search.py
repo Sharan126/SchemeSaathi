@@ -30,7 +30,7 @@ class HybridSearchEngine:
         "which", "who", "whom", "this", "that", "these", "those", "can", "could", "will", "would",
         "shall", "should", "may", "might", "must", "with", "by", "from", "as", "about", "into",
         "through", "after", "before", "between", "under", "above", "up", "down", "out", "off", "over",
-        "scheme", "yojana", "details", "rules", "pm", "pradhan", "mantri", "hi", "hello", "hey", "im", "i'm", "my", "name",
+        "scheme", "yojana", "details", "rules", "pm", "pradhan", "mantri", "hi", "hello", "hey", "im", "i'm", "my", "name", "tell", "me", "about", "welfare",
         # Hindi common particles & generic scheme terms
         "का", "के", "की", "को", "में", "से", "पर", "है", "हैं", "था", "थे", "थी", "हो", "होता", "होती",
         "और", "या", "तो", "भी", "ने", "एक", "इस", "उस", "यह", "वह", "किया", "गया", "कर", "कृपया",

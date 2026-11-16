@@ -41,12 +41,17 @@ def handle_voice_chat(request: VoiceChatRequest):
     Handles a spoken conversation turn regarding welfare schemes.
     Returns short, natural spoken sentences designed for audio playback,
     with source citations and visual transcripts for companions or verifiers.
+    Supports multi-turn conversation memory, profile accumulation, and deterministic AST evaluation.
     """
     return VoiceConversationService.answer_spoken_query(
         query=request.query,
         language=request.language,
         dialogue_mode=request.dialogue_mode,
         target_scheme_id=request.target_scheme_id,
+        conversation_history=request.conversation_history,
+        profile_context=request.profile_context,
+        simplicity_mode=request.simplicity_mode,
+        speech_speed=request.speech_speed,
     )
 
 

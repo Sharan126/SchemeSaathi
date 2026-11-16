@@ -38,12 +38,24 @@ class SynthesisRequest(BaseModel):
     pitch: float = 1.0
 
 
+class VoiceMessage(BaseModel):
+    role: str  # "citizen" | "assistant"
+    content: str
+    timestamp: Optional[str] = None
+    scheme_id: Optional[str] = None
+    intent: Optional[str] = None
+
+
 class VoiceChatRequest(BaseModel):
     query: str
     language: str = "en"
     session_id: Optional[str] = None
     target_scheme_id: Optional[str] = None
     dialogue_mode: VoiceDialogueMode = VoiceDialogueMode.DISCOVERY
+    conversation_history: List[VoiceMessage] = Field(default_factory=list)
+    profile_context: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    simplicity_mode: bool = False
+    speech_speed: float = 1.0
 
 
 class SpokenCitation(BaseModel):
@@ -62,6 +74,10 @@ class VoiceChatResponse(BaseModel):
     citations: List[SpokenCitation] = Field(default_factory=list)
     action_type: Optional[str] = None  # e.g., "NAVIGATE_WIZARD", "SHOW_DOCS"
     confidence_score: float = 1.0
+    active_scheme_id: Optional[str] = None
+    detected_intent: Optional[str] = None
+    extracted_profile: Dict[str, Any] = Field(default_factory=dict)
+    eligible_schemes: List[str] = Field(default_factory=list)
 
 
 class SpokenEligibilityQuestion(BaseModel):
