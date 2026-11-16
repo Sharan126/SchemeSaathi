@@ -3,19 +3,56 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 15, 23, 42;
-  --background-start-rgb: 248, 250, 252;
-  --background-end-rgb: 255, 255, 255;
+  --canvas-bg: #F8F9FA;
+  --panel-bg: #FFFFFF;
+  --text-primary: #1E293B;
+  --text-secondary: #475569;
+  --border-hairline: #E2E8F0;
+  --accent-saffron: #B44610;
+  --accent-forest: #166534;
+  --accent-ashoka: #0F1E36;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(to bottom, rgb(var(--background-start-rgb)), rgb(var(--background-end-rgb)));
+  color: var(--text-primary);
+  background-color: var(--canvas-bg);
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
-/* Custom Accessibility Focus Rings */
-a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
-  outline: 2px solid #0D6EFD;
+/* Tabular Numerals for Currency & Benefit Figures */
+.num-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Optical Leading for Indian Scripts (Prevents matra/ottu clipping) */
+html[lang="hi"], html[lang="kn"] {
+  line-height: 1.75;
+}
+
+/* Strict Accessible Focus States */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #0F1E36;
   outline-offset: 2px;
+}
+
+/* Hairline Ledger Dividing Borders */
+.border-ledger {
+  border-color: #E2E8F0;
+}
+
+/* Respect Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

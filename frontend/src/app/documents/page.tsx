@@ -90,28 +90,28 @@ export default function DocumentsPage() {
   const progressPct = totalDocs > 0 ? Math.round((readyCount / totalDocs) * 100) : 0;
 
   return (
-    <div className="space-y-8 py-2">
+    <div className="space-y-6 py-2">
       {/* Header */}
-      <div className="space-y-2">
-        <div className="inline-flex items-center space-x-1.5 bg-blue-50 text-blue-900 border border-blue-200 px-3 py-1 rounded-full text-xs font-semibold">
-          <ShieldCheck className="w-3.5 h-3.5 text-gov-blue" />
+      <div className="space-y-1.5 border-b border-hairline pb-4">
+        <div className="inline-flex items-center space-x-1.5 bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded text-[11px] font-semibold border border-slate-200">
+          <ShieldCheck className="w-3.5 h-3.5 text-forest" />
           <span>Statutory Document Specifications</span>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F1E36] tracking-tight">
           {t("documents.title")}
         </h1>
-        <p className="text-xs sm:text-sm sm:text-base text-slate-600 max-w-2xl leading-relaxed">
+        <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
           {t("documents.subtitle")}
         </p>
       </div>
 
       {/* Interactive Personal Checklist Progress Banner */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+      <div className="bg-white rounded border border-hairline p-5 sm:p-6 shadow-hairline space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
             <div className="flex items-center space-x-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-              <h2 className="text-base sm:text-lg font-bold text-slate-900">
+              <CheckCircle2 className="w-4 h-4 text-forest" />
+              <h2 className="text-sm sm:text-base font-bold text-[#0F1E36]">
                 {t("documents.checklist_title")}
               </h2>
             </div>
@@ -122,32 +122,32 @@ export default function DocumentsPage() {
 
           <div className="flex items-center space-x-3">
             <div className="text-right">
-              <span className="text-[11px] text-slate-500 block">{t("documents.progress_label")}</span>
-              <span className="text-sm font-bold text-slate-900">{readyCount} of {totalDocs} Documents Ready ({progressPct}%)</span>
+              <span className="text-[10px] text-slate-400 uppercase font-semibold block">{t("documents.progress_label")}</span>
+              <span className="text-xs sm:text-sm font-bold text-[#0F1E36] num-tabular">{readyCount} of {totalDocs} Documents Ready ({progressPct}%)</span>
             </div>
             {readyCount > 0 && (
               <button
                 onClick={resetChecklist}
-                className="text-xs text-slate-400 hover:text-red-600 p-1 rounded cursor-pointer"
+                className="text-xs text-slate-400 hover:text-red-700 p-1 rounded cursor-pointer"
                 title="Reset checklist"
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className="w-full h-2 bg-slate-100 rounded overflow-hidden">
           <div
-            className="h-full bg-emerald-600 transition-all duration-300"
+            className="h-full bg-forest transition-all duration-300"
             style={{ width: `${progressPct}%` }}
           />
         </div>
 
         {/* Privacy Assurance Notice */}
-        <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-3 flex items-start space-x-2 text-xs text-emerald-900">
-          <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+        <div className="bg-emerald-50/50 border border-emerald-200 rounded p-2.5 flex items-start space-x-2 text-xs text-emerald-950">
+          <ShieldCheck className="w-4 h-4 text-forest shrink-0 mt-0.5" />
           <span>
             {t("documents.local_storage_notice")}
           </span>
@@ -155,49 +155,49 @@ export default function DocumentsPage() {
       </div>
 
       {/* Search & Filter Bar */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+      <div className="bg-white p-4 rounded border border-hairline shadow-hairline space-y-3">
         <div className="relative">
-          <Search className="w-5 h-5 absolute left-3.5 top-3.5 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder={t("documents.search_placeholder")}
-            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-hairline rounded text-xs sm:text-sm text-[#0F1E36] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F1E36] focus:bg-white"
           />
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 text-xs">
-          <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-hairline text-xs">
+          <div className="flex bg-slate-100 p-0.5 rounded border border-slate-200">
             <button
               onClick={() => setFilterStatus("all")}
-              className={`px-3 py-1 rounded-md font-semibold cursor-pointer transition-colors ${
-                filterStatus === "all" ? "bg-white text-gov-blue shadow-sm" : "text-slate-600"
+              className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer transition-colors ${
+                filterStatus === "all" ? "bg-white text-[#0F1E36] shadow-sm font-bold" : "text-slate-600"
               }`}
             >
               All Documents ({docs.length})
             </button>
             <button
               onClick={() => setFilterStatus("ready")}
-              className={`px-3 py-1 rounded-md font-semibold cursor-pointer transition-colors ${
-                filterStatus === "ready" ? "bg-white text-emerald-800 shadow-sm" : "text-slate-600"
+              className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer transition-colors ${
+                filterStatus === "ready" ? "bg-white text-forest shadow-sm font-bold" : "text-slate-600"
               }`}
             >
               Ready ({readyCount})
             </button>
             <button
               onClick={() => setFilterStatus("needed")}
-              className={`px-3 py-1 rounded-md font-semibold cursor-pointer transition-colors ${
-                filterStatus === "needed" ? "bg-white text-amber-800 shadow-sm" : "text-slate-600"
+              className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer transition-colors ${
+                filterStatus === "needed" ? "bg-white text-amber-900 shadow-sm font-bold" : "text-slate-600"
               }`}
             >
               Still Needed ({totalDocs - readyCount})
             </button>
           </div>
 
-          <span className="text-slate-400 text-[11px]">
-            Showing {filtered.length} documents
+          <span className="text-slate-400 font-mono text-[11px]">
+            {filtered.length} DOCUMENTS LISTED
           </span>
         </div>
       </div>
@@ -205,21 +205,21 @@ export default function DocumentsPage() {
       {/* Document Directory Cards */}
       {loading ? (
         <div className="py-20 text-center space-y-3">
-          <div className="w-8 h-8 border-4 border-gov-blue border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-slate-500">Loading document requirements...</p>
+          <div className="w-6 h-6 border-2 border-[#0F1E36] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs text-slate-500">Loading document requirements...</p>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-2 shadow-sm">
-          <p className="text-slate-700 font-semibold text-sm">No documents found matching &quot;{searchTerm}&quot;</p>
+        <div className="bg-white rounded border border-hairline p-10 text-center space-y-2 shadow-hairline">
+          <p className="text-slate-800 font-bold text-sm">No documents found matching &quot;{searchTerm}&quot;</p>
           <button
             onClick={() => { setSearchTerm(""); setFilterStatus("all"); }}
-            className="text-xs text-gov-blue font-bold underline cursor-pointer"
+            className="text-xs text-civic font-bold underline cursor-pointer"
           >
             Clear search &amp; filters
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {filtered.map((doc) => {
             const name = doc.name[locale] || doc.name.en;
             const authority = doc.authority[locale] || doc.authority.en;
@@ -229,31 +229,31 @@ export default function DocumentsPage() {
             return (
               <div
                 key={doc.code}
-                className={`bg-white rounded-2xl border p-6 space-y-4 hover:shadow-md transition-all flex flex-col justify-between ${
-                  isReady ? "border-emerald-300 ring-1 ring-emerald-200" : "border-slate-200"
+                className={`bg-white rounded border p-5 space-y-3 hover:shadow-panel transition-all flex flex-col justify-between ${
+                  isReady ? "border-forest/60" : "border-hairline"
                 }`}
               >
                 <div className="space-y-3">
                   {/* Card Header & Checkbox */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shrink-0 ${
-                        isReady ? "bg-emerald-100 text-emerald-800" : "bg-blue-50 text-gov-blue"
+                      <div className={`w-9 h-9 rounded flex items-center justify-center font-bold shrink-0 border ${
+                        isReady ? "bg-emerald-50 text-forest border-emerald-200" : "bg-slate-100 text-[#0F1E36] border-slate-200"
                       }`}>
-                        <FileText className="w-5 h-5" />
+                        <FileText className="w-4 h-4" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-base text-slate-900 leading-snug">{name}</h3>
-                        <span className="text-[11px] text-slate-400 font-mono">Code: {doc.code}</span>
+                        <h3 className="font-bold text-sm sm:text-base text-[#0F1E36] leading-snug">{name}</h3>
+                        <span className="text-[10px] text-slate-400 font-mono">Code: {doc.code}</span>
                       </div>
                     </div>
 
                     <button
                       type="button"
                       onClick={() => toggleDoc(doc.code)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-1 shrink-0 ${
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer flex items-center space-x-1 shrink-0 ${
                         isReady
-                          ? "bg-emerald-600 text-white shadow-sm"
+                          ? "bg-forest text-white shadow-hairline"
                           : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300"
                       }`}
                     >
@@ -268,39 +268,39 @@ export default function DocumentsPage() {
                     </button>
                   </div>
 
-                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                  <p className="text-xs text-slate-600 leading-relaxed">
                     {description}
                   </p>
 
-                  <div className="pt-2 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600">
-                    <div className="flex items-start space-x-2">
-                      <Building className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                  <div className="pt-2 border-t border-hairline grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
+                    <div className="flex items-start space-x-1.5">
+                      <Building className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                       <div>
-                        <span className="block text-[10px] uppercase font-bold text-slate-400">
+                        <span className="block text-[10px] uppercase font-semibold text-slate-400">
                           {t("documents.authority_label")}
                         </span>
-                        <span className="font-semibold text-slate-800">{authority}</span>
+                        <span className="font-bold text-slate-800">{authority}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-start space-x-2">
-                      <Clock className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                    <div className="flex items-start space-x-1.5">
+                      <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                       <div>
-                        <span className="block text-[10px] uppercase font-bold text-slate-400">
+                        <span className="block text-[10px] uppercase font-semibold text-slate-400">
                           {t("documents.tat_label")}
                         </span>
-                        <span className="font-semibold text-slate-800">{doc.estimated_tat_days}</span>
+                        <span className="font-bold text-slate-800">{doc.estimated_tat_days}</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Footer Link to Matching Schemes */}
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                  <span className="text-slate-400 text-[11px]">Officially required for verification</span>
+                <div className="pt-2.5 border-t border-hairline flex items-center justify-between text-xs">
+                  <span className="text-slate-400 text-[10px]">Statutory requirement for verification</span>
                   <Link
                     href={`/schemes?q=${encodeURIComponent(name.split(" ")[0])}`}
-                    className="text-gov-blue hover:text-blue-800 font-semibold inline-flex items-center space-x-1"
+                    className="text-civic hover:underline font-bold inline-flex items-center space-x-0.5"
                   >
                     <span>Find schemes requiring this</span>
                     <ArrowRight className="w-3 h-3" />

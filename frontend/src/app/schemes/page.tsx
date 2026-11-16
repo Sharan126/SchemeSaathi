@@ -50,7 +50,7 @@ function SchemesContent() {
     { id: "women", label: locale === "hi" ? "महिलाएं" : locale === "kn" ? "ಮಹಿಳೆಯರು" : "Women" },
     { id: "students", label: locale === "hi" ? "छात्र" : locale === "kn" ? "ವಿದ್ಯಾರ್ಥಿಗಳು" : "Students" },
     { id: "senior_citizens", label: locale === "hi" ? "वरिष्ठ नागरिक" : locale === "kn" ? "ಹಿರಿಯ ನಾಗರಿಕರು" : "Senior Citizens" },
-    { id: "divyangjan", label: locale === "hi" ? "दिव्यांगजन" : locale === "kn" ? "ದಿವ್ಯಾಂಗರು" : "Persons with Disabilities" },
+    { id: "divyangjan", label: locale === "hi" ? "दिव्यांगजन" : locale === "kn" ? "ದಿವ್ಯಾಂಗರು" : "Divyangjan" },
     { id: "rural", label: locale === "hi" ? "ग्रामीण परिवार" : locale === "kn" ? "ಗ್ರಾಮೀಣ ಕುಟುಂಬಗಳು" : "Rural / Low Income" },
   ];
 
@@ -94,60 +94,60 @@ function SchemesContent() {
   };
 
   return (
-    <div className="space-y-8 py-2">
+    <div className="space-y-6 py-2">
       {/* Header */}
-      <div className="space-y-2">
-        <div className="inline-flex items-center space-x-1.5 bg-blue-50 text-blue-900 border border-blue-200 px-3 py-1 rounded-full text-xs font-semibold">
-          <ShieldCheck className="w-3.5 h-3.5 text-gov-blue" />
-          <span>Audited Government Gazette Database</span>
+      <div className="space-y-1.5 border-b border-hairline pb-4">
+        <div className="inline-flex items-center space-x-1.5 bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded text-[11px] font-semibold border border-slate-200">
+          <ShieldCheck className="w-3.5 h-3.5 text-forest" />
+          <span>Official Gazette Archive • 8 Audited Schemes</span>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F1E36] tracking-tight">
           {t("schemes.title")}
         </h1>
-        <p className="text-slate-600 text-sm sm:text-base max-w-2xl">
+        <p className="text-slate-600 text-xs sm:text-sm max-w-2xl">
           {t("schemes.subtitle")}
         </p>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+      <div className="bg-white p-5 rounded border border-hairline shadow-hairline space-y-4">
         {/* Search Input */}
         <div className="relative">
-          <Search className="w-5 h-5 absolute left-3.5 top-3.5 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t("home.search_placeholder")}
-            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-hairline rounded text-xs sm:text-sm text-[#0F1E36] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F1E36] focus:bg-white"
           />
         </div>
 
         {/* Level Toggle: Central vs State */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-slate-100">
-          <div className="flex items-center space-x-2 text-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-hairline text-xs">
+          <div className="flex items-center space-x-2">
             <span className="font-bold text-slate-700">{t("schemes.filter_scope")}:</span>
-            <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+            <div className="flex bg-slate-100 p-0.5 rounded border border-slate-200">
               <button
                 onClick={() => setSelectedScope("all")}
-                className={`px-3 py-1 rounded-md text-xs font-medium cursor-pointer transition-colors ${
-                  selectedScope === "all" ? "bg-white text-gov-blue font-bold shadow-sm" : "text-slate-600 hover:text-slate-900"
+                className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer transition-colors ${
+                  selectedScope === "all" ? "bg-white text-[#0F1E36] shadow-sm" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 {t("schemes.all_scopes")}
               </button>
               <button
                 onClick={() => setSelectedScope("central")}
-                className={`px-3 py-1 rounded-md text-xs font-medium cursor-pointer transition-colors ${
-                  selectedScope === "central" ? "bg-white text-gov-blue font-bold shadow-sm" : "text-slate-600 hover:text-slate-900"
+                className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer transition-colors ${
+                  selectedScope === "central" ? "bg-white text-[#0F1E36] shadow-sm" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 {t("schemes.central_gov")}
               </button>
               <button
                 onClick={() => setSelectedScope("state")}
-                className={`px-3 py-1 rounded-md text-xs font-medium cursor-pointer transition-colors ${
-                  selectedScope === "state" ? "bg-white text-gov-blue font-bold shadow-sm" : "text-slate-600 hover:text-slate-900"
+                className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer transition-colors ${
+                  selectedScope === "state" ? "bg-white text-[#0F1E36] shadow-sm" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 {t("schemes.state_gov")}
@@ -158,7 +158,7 @@ function SchemesContent() {
           {(selectedCategory || selectedBeneficiary || selectedScope !== "all" || searchQuery) && (
             <button
               onClick={clearAllFilters}
-              className="text-xs text-slate-500 hover:text-gov-blue font-semibold inline-flex items-center space-x-1 cursor-pointer"
+              className="text-xs text-slate-500 hover:text-[#0F1E36] font-semibold inline-flex items-center space-x-1 cursor-pointer"
             >
               <RotateCcw className="w-3 h-3" />
               <span>Reset all filters</span>
@@ -168,7 +168,7 @@ function SchemesContent() {
 
         {/* Category Pills */}
         <div className="space-y-1.5 pt-1">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
             {t("schemes.filter_category")}:
           </span>
           <div className="flex flex-wrap gap-1.5">
@@ -178,10 +178,10 @@ function SchemesContent() {
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
                     isSelected
-                      ? "bg-slate-900 text-white shadow-sm"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      ? "bg-[#0F1E36] text-white shadow-sm"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                   }`}
                 >
                   {cat.label}
@@ -193,7 +193,7 @@ function SchemesContent() {
 
         {/* Beneficiary Filter Pills */}
         <div className="space-y-1.5 pt-1">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
             {t("schemes.filter_beneficiary")}:
           </span>
           <div className="flex flex-wrap gap-1.5">
@@ -203,10 +203,10 @@ function SchemesContent() {
                 <button
                   key={b.id}
                   onClick={() => setSelectedBeneficiary(b.id)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
                     isSelected
-                      ? "bg-gov-blue text-white shadow-sm"
-                      : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"
+                      ? "bg-civic text-white shadow-sm"
+                      : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200"
                   }`}
                 >
                   {b.label}
@@ -220,18 +220,18 @@ function SchemesContent() {
       {/* Results Count & Grid */}
       {loading ? (
         <div className="py-20 text-center space-y-3">
-          <div className="w-8 h-8 border-4 border-gov-blue border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-slate-500">Loading verified government schemes...</p>
+          <div className="w-6 h-6 border-2 border-[#0F1E36] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs text-slate-500">Loading verified government schemes...</p>
         </div>
       ) : filteredSchemes.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3 shadow-sm">
-          <p className="text-slate-700 font-medium text-base">{t("schemes.no_results")}</p>
+        <div className="bg-white rounded border border-hairline p-10 text-center space-y-2 shadow-hairline">
+          <p className="text-slate-800 font-bold text-sm">{t("schemes.no_results")}</p>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            Try adjusting your search terms, clearing category filters, or selecting &quot;All Levels&quot;.
+            Try adjusting search terms, clearing category filters, or selecting &quot;All Levels&quot;.
           </p>
           <button
             onClick={clearAllFilters}
-            className="text-xs text-gov-blue font-bold underline cursor-pointer pt-2"
+            className="text-xs text-civic font-bold underline cursor-pointer pt-2"
           >
             Clear all filters
           </button>
@@ -239,11 +239,11 @@ function SchemesContent() {
       ) : (
         <div className="space-y-4">
           <div className="flex justify-between items-center text-xs text-slate-500 px-1">
-            <span>Showing <strong className="text-slate-800">{filteredSchemes.length}</strong> verified welfare schemes</span>
-            <span>Sorted by relevance</span>
+            <span>Showing <strong className="text-[#0F1E36] font-bold">{filteredSchemes.length}</strong> official welfare schemes</span>
+            <span className="font-mono text-[11px]">SORTED BY RELEVANCE</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredSchemes.map((scheme) => {
               const title = scheme.title[locale] || scheme.title.en;
               const shortDesc = scheme.short_description[locale] || scheme.short_description.en;
@@ -252,22 +252,22 @@ function SchemesContent() {
               return (
                 <div
                   key={scheme.id}
-                  className="bg-white rounded-2xl border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
+                  className="bg-white rounded border border-hairline hover:border-slate-400 hover:shadow-panel transition-all flex flex-col justify-between overflow-hidden group"
                 >
                   <div className="p-5 space-y-3">
                     {/* Category & Badge */}
                     <div className="flex justify-between items-start gap-2">
-                      <span className="text-[10px] font-bold text-blue-800 bg-blue-50 px-2.5 py-1 rounded-md uppercase tracking-wider">
+                      <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded uppercase tracking-wider">
                         {scheme.category.replace(/_/g, " ")}
                       </span>
-                      <span className="inline-flex items-center space-x-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                        <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                      <span className="inline-flex items-center space-x-1 text-[10px] font-bold text-forest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        <ShieldCheck className="w-3 h-3 text-forest" />
                         <span>Verified v{scheme.version_number}</span>
                       </span>
                     </div>
 
                     {/* Scheme Title */}
-                    <h3 className="font-bold text-base text-slate-900 group-hover:text-gov-blue transition-colors line-clamp-2 leading-snug">
+                    <h3 className="font-bold text-sm sm:text-base text-[#0F1E36] group-hover:text-civic transition-colors line-clamp-2 leading-snug">
                       {title}
                     </h3>
 
@@ -282,15 +282,15 @@ function SchemesContent() {
                       {shortDesc}
                     </p>
 
-                    {/* Key Benefit Highlight */}
+                    {/* Key Benefit Highlight in tabular figures */}
                     {benefit && (
-                      <div className="bg-amber-50/70 border border-amber-200/60 rounded-xl p-3 flex items-start space-x-2">
+                      <div className="bg-[#FAFBFD] border border-hairline rounded p-3 flex items-start space-x-2">
                         <Coins className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                         <div>
-                          <span className="text-[10px] font-bold text-amber-900 uppercase tracking-wide block">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block">
                             {t("schemes.benefits_label")}
                           </span>
-                          <p className="text-xs text-amber-900 font-semibold leading-tight mt-0.5">
+                          <p className="text-xs text-[#0F1E36] font-bold num-tabular leading-tight mt-0.5">
                             {benefit}
                           </p>
                         </div>
@@ -303,7 +303,7 @@ function SchemesContent() {
                         {scheme.target_beneficiaries.map((b) => (
                           <span
                             key={b}
-                            className="text-[10px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded"
+                            className="text-[10px] font-medium text-slate-600 bg-slate-50 border border-slate-200 px-1.5 py-0.2 rounded"
                           >
                             {b}
                           </span>
@@ -313,10 +313,10 @@ function SchemesContent() {
                   </div>
 
                   {/* Card Action Footer */}
-                  <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <div className="px-5 py-3 bg-slate-50 border-t border-hairline flex items-center justify-between gap-2">
                     <Link
                       href={`/wizard?scheme=${scheme.slug}`}
-                      className="text-xs font-bold text-gov-green hover:text-emerald-800 transition-colors inline-flex items-center space-x-1"
+                      className="text-xs font-bold text-forest hover:text-emerald-900 transition-colors inline-flex items-center space-x-1"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       <span>{t("schemes.check_eligibility")}</span>
@@ -324,7 +324,7 @@ function SchemesContent() {
 
                     <Link
                       href={`/schemes/${scheme.slug}`}
-                      className="inline-flex items-center space-x-1 text-xs font-semibold text-gov-blue hover:text-blue-800 transition-colors"
+                      className="inline-flex items-center space-x-1 text-xs font-bold text-civic hover:text-blue-900 transition-colors"
                     >
                       <span>{t("schemes.view_details")}</span>
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -342,7 +342,7 @@ function SchemesContent() {
 
 export default function SchemesPage() {
   return (
-    <Suspense fallback={<div className="py-20 text-center text-sm text-slate-500">Loading Schemes Catalogue...</div>}>
+    <Suspense fallback={<div className="py-20 text-center text-xs text-slate-500">Loading Schemes Catalogue...</div>}>
       <SchemesContent />
     </Suspense>
   );
