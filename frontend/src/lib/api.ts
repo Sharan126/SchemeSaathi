@@ -101,15 +101,190 @@ export async function evaluateEligibility(
   if (schemeId) {
     payload.scheme_id = schemeId;
   }
-  const res = await fetch(`${API_BASE}/eligibility/evaluate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    throw new Error("Failed to evaluate eligibility");
+  try {
+    const res = await fetch(`${API_BASE}/eligibility/evaluate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn("Backend evaluation failed, falling back to local deterministic rule engine", err);
   }
-  return await res.json();
+
+  return evaluateLocalEligibility(profile, schemeId);
+}
+
+function evaluateLocalNode(node: any, profile: Record<string, any>): [any, boolean] {
+  if (!node || typeof node !== "object" || Array.isArray(node)) {
+    return [node, false];
+  }
+  const op = Object.keys(node)[0];
+  const args = node[op];
+
+  if (op === "var") {
+    const varName = Array.isArray(args) ? args[0] : args;
+    if (profile[varName] === undefined || profile[varName] === null) {
+      return [null, true];
+    }
+    return [profile[varName], false];
+  }
+
+  if (op === "not") {
+    const [val, missing] = evaluateLocalNode(args, profile);
+    if (missing) return [null, true];
+    return [!val, false];
+  }
+
+  if (op === "and") {
+    let hasMissing = false;
+    for (const child of Array.isArray(args) ? args : [args]) {
+      const [res, missing] = evaluateLocalNode(child, profile);
+      if (res === false && !missing) return [false, false];
+      if (missing) hasMissing = true;
+    }
+    return hasMissing ? [null, true] : [true, false];
+  }
+
+  if (op === "or") {
+    let hasMissing = false;
+    for (const child of Array.isArray(args) ? args : [args]) {
+      const [res, missing] = evaluateLocalNode(child, profile);
+      if (res === true && !missing) return [true, false];
+      if (missing) hasMissing = true;
+    }
+    return hasMissing ? [null, true] : [false, false];
+  }
+
+  if (["==", "!=", "<", "<=", ">", ">="].includes(op)) {
+    const [left, leftMissing] = evaluateLocalNode(args[0], profile);
+    const [right, rightMissing] = evaluateLocalNode(args[1], profile);
+    if (leftMissing || rightMissing) return [null, true];
+    switch (op) {
+      case "==": return [left === right, false];
+      case "!=": return [left !== right, false];
+      case "<": return [Number(left) < Number(right), false];
+      case "<=": return [Number(left) <= Number(right), false];
+      case ">": return [Number(left) > Number(right), false];
+      case ">=": return [Number(left) >= Number(right), false];
+    }
+  }
+
+  if (op === "between") {
+    const [val, vMissing] = evaluateLocalNode(args[0], profile);
+    const [low, lMissing] = evaluateLocalNode(args[1], profile);
+    const [high, hMissing] = evaluateLocalNode(args[2], profile);
+    if (vMissing || lMissing || hMissing) return [null, true];
+    return [Number(val) >= Number(low) && Number(val) <= Number(high), false];
+  }
+
+  if (op === "in") {
+    const [item, iMissing] = evaluateLocalNode(args[0], profile);
+    const [container, cMissing] = evaluateLocalNode(args[1], profile);
+    if (iMissing || cMissing) return [null, true];
+    if (Array.isArray(container)) {
+      return [container.includes(item), false];
+    }
+    return [false, false];
+  }
+
+  return [true, false];
+}
+
+function evaluateLocalEligibility(profile: Record<string, any>, schemeId?: string): BatchEvaluationResponse {
+  const schemesToEval = schemeId
+    ? STATIC_SCHEMES.filter((s) => s.id === schemeId || s.slug === schemeId)
+    : STATIC_SCHEMES;
+
+  const eligible_schemes: any[] = [];
+  const potentially_eligible_schemes: any[] = [];
+  const ineligible_schemes: any[] = [];
+
+  for (const scheme of schemesToEval) {
+    const passed_criteria: any[] = [];
+    const failed_criteria: any[] = [];
+    const missing_criteria: any[] = [];
+    const required_missing_fields: string[] = [];
+
+    for (const criterion of scheme.criteria || []) {
+      const fieldName = criterion.field_name;
+      const citizenVal = profile[fieldName];
+      const [res, isMissing] = evaluateLocalNode(criterion.rule_ast, profile);
+
+      const critEval = {
+        criterion_id: criterion.id || `crit-${fieldName}`,
+        field_name: fieldName,
+        passed: res === true && !isMissing,
+        is_missing: isMissing,
+        citizen_value: citizenVal,
+        rule_summary: JSON.stringify(criterion.rule_ast),
+        explanation: criterion.explanation || { en: `Rule for ${fieldName}` },
+      };
+
+      if (isMissing) {
+        missing_criteria.push(critEval);
+        required_missing_fields.push(fieldName);
+      } else if (res === true) {
+        passed_criteria.push(critEval);
+      } else {
+        failed_criteria.push(critEval);
+      }
+    }
+
+    let status: "ELIGIBLE" | "INELIGIBLE" | "NEEDS_MORE_INFO" = "ELIGIBLE";
+    let summary: Record<string, string> = {
+      en: "All criteria verified successfully.",
+      hi: "सभी पात्रता शर्तें पूरी पाई गईं।",
+      kn: "ಎಲ್ಲಾ ಮಾನದಂಡಗಳನ್ನು ಯಶಸ್ವಿಯಾಗಿ ಪರಿಶೀಲಿಸಲಾಗಿದೆ.",
+    };
+
+    if (failed_criteria.length > 0) {
+      status = "INELIGIBLE";
+      summary = {
+        en: `Did not meet ${failed_criteria.length} required criteria.`,
+        hi: `${failed_criteria.length} आवश्यक पात्रता शर्तें पूरी नहीं हुईं।`,
+        kn: `${failed_criteria.length} ಅಗತ್ಯ ಮಾನದಂಡಗಳನ್ನು ಪೂರೈಸಿಲ್ಲ.`,
+      };
+    } else if (missing_criteria.length > 0) {
+      status = "NEEDS_MORE_INFO";
+      summary = {
+        en: `Requires ${missing_criteria.length} additional data points to confirm eligibility.`,
+        hi: `पात्रता की पुष्टि के लिए ${missing_criteria.length} अतिरिक्त जानकारी की आवश्यकता है।`,
+        kn: `ಅರ್ಹತೆಯನ್ನು ದೃಢೀಕರಿಸಲು ${missing_criteria.length} ಹೆಚ್ಚುವರಿ ವಿವರಗಳು ಬೇಕು.`,
+      };
+    }
+
+    const result = {
+      scheme_id: scheme.id,
+      scheme_slug: scheme.slug,
+      scheme_title: scheme.title,
+      status,
+      is_eligible: status === "ELIGIBLE",
+      confidence_score: 1.0,
+      passed_criteria,
+      failed_criteria,
+      missing_criteria,
+      required_missing_fields,
+      summary_explanation: summary,
+    };
+
+    if (status === "ELIGIBLE") {
+      eligible_schemes.push(result);
+    } else if (status === "NEEDS_MORE_INFO") {
+      potentially_eligible_schemes.push(result);
+    } else {
+      ineligible_schemes.push(result);
+    }
+  }
+
+  return {
+    eligible_schemes,
+    potentially_eligible_schemes,
+    ineligible_schemes,
+    recommended_next_questions: [],
+  };
 }
 
 function synthesizeClientFallback(query: string, locale: string = "en"): GroundedAnswerResponse {
@@ -138,39 +313,207 @@ function synthesizeClientFallback(query: string, locale: string = "en"): Grounde
     };
   }
 
-  // 2. Search for relevant scheme in STATIC_SCHEMES
+  // 2. Search for relevant scheme in STATIC_SCHEMES with comprehensive multilingual triggers
   const matchedScheme = STATIC_SCHEMES.find((s) => {
     const id = s.id.toLowerCase();
     const titles = Object.values(s.title || {}).map((v) => v.toLowerCase());
-    return (
-      qNorm.includes(id) ||
-      titles.some((t) => qNorm.includes(t.split("(")[0].trim().toLowerCase())) ||
-      (id === "pm-kisan" && (qNorm.includes("kisan") || qNorm.includes("farmer"))) ||
-      (id === "ayushman-bharat-pmjay" && (qNorm.includes("ayushman") || qNorm.includes("health cover") || qNorm.includes("cashless"))) ||
-      (id === "pmmvy" && (qNorm.includes("pmmvy") || qNorm.includes("mother") || qNorm.includes("pregnant"))) ||
-      (id === "pms-sc" && (qNorm.includes("scholarship") || qNorm.includes("matric"))) ||
-      (id === "sukanya-samriddhi" && (qNorm.includes("sukanya") || qNorm.includes("girl child"))) ||
-      (id === "pmay-g" && (qNorm.includes("awas") || qNorm.includes("housing"))) ||
-      (id === "ignoaps" && (qNorm.includes("pension") || qNorm.includes("old age"))) ||
-      (id === "divyangjan-swavlamban" && (qNorm.includes("divyang") || qNorm.includes("disability")))
-    );
+    const descriptions = Object.values(s.short_description || {}).map((v) => v.toLowerCase());
+
+    const isMatchInTitleOrDesc =
+      titles.some((t) => qNorm.includes(t.toLowerCase()) || t.toLowerCase().includes(qNorm)) ||
+      descriptions.some((d) => qNorm.includes(d.toLowerCase()));
+
+    if (isMatchInTitleOrDesc) return true;
+
+    if (id === "pm-kisan") {
+      return (
+        qNorm.includes("pm-kisan") ||
+        qNorm.includes("kisan") ||
+        qNorm.includes("farmer") ||
+        qNorm.includes("किसान") ||
+        qNorm.includes("पीएम-किसान") ||
+        qNorm.includes("खेती") ||
+        qNorm.includes("ಕಿಸಾನ್") ||
+        qNorm.includes("ಪಿಎಂ-ಕಿಸಾನ್") ||
+        qNorm.includes("ರೈತ")
+      );
+    }
+    if (id === "ayushman-bharat-pmjay") {
+      return (
+        qNorm.includes("ayushman") ||
+        qNorm.includes("pmjay") ||
+        qNorm.includes("health cover") ||
+        qNorm.includes("cashless") ||
+        qNorm.includes("hospital") ||
+        qNorm.includes("आयुष्मान") ||
+        qNorm.includes("इलाज") ||
+        qNorm.includes("स्वास्थ्य") ||
+        qNorm.includes("ಆಯುಷ್ಮಾನ್") ||
+        qNorm.includes("ಆರೋಗ್ಯ") ||
+        qNorm.includes("ಆಸ್ಪತ್ರೆ")
+      );
+    }
+    if (id === "pmmvy") {
+      return (
+        qNorm.includes("pmmvy") ||
+        qNorm.includes("matru") ||
+        qNorm.includes("mother") ||
+        qNorm.includes("pregnant") ||
+        qNorm.includes("पीएमएमवीवाई") ||
+        qNorm.includes("मातृ") ||
+        qNorm.includes("गर्भवती") ||
+        qNorm.includes("माता") ||
+        qNorm.includes("ತಾಯಿ") ||
+        qNorm.includes("ಗರ್ಭಿಣಿ")
+      );
+    }
+    if (id === "pms-sc") {
+      return (
+        qNorm.includes("scholarship") ||
+        qNorm.includes("matric") ||
+        qNorm.includes("sc student") ||
+        qNorm.includes("छात्रवृत्ति") ||
+        qNorm.includes("स्कॉलरशिप") ||
+        qNorm.includes("ವಿದ್ಯಾರ್ಥಿವೇತನ") ||
+        qNorm.includes("ಸ್ಕಾಲರ್‌ಶಿಪ್")
+      );
+    }
+    if (id === "sukanya-samriddhi") {
+      return (
+        qNorm.includes("sukanya") ||
+        qNorm.includes("girl child") ||
+        qNorm.includes("सुकन्या") ||
+        qNorm.includes("बेटी") ||
+        qNorm.includes("ಸುಕನ್ಯಾ") ||
+        qNorm.includes("ಹೆಣ್ಣು ಮಗು")
+      );
+    }
+    if (id === "pmay-g") {
+      return (
+        qNorm.includes("awas") ||
+        qNorm.includes("housing") ||
+        qNorm.includes("pucca house") ||
+        qNorm.includes("आवास") ||
+        qNorm.includes("मकान") ||
+        qNorm.includes("घर") ||
+        qNorm.includes("ವಸತಿ") ||
+        qNorm.includes("ಮನೆ")
+      );
+    }
+    if (id === "ignoaps") {
+      return (
+        qNorm.includes("ignoaps") ||
+        qNorm.includes("pension") ||
+        qNorm.includes("old age") ||
+        qNorm.includes("पेंशन") ||
+        qNorm.includes("वृद्धा") ||
+        qNorm.includes("ಪಿಂಚಣಿ") ||
+        qNorm.includes("ವೃದ್ಧಾಪ್ಯ")
+      );
+    }
+    if (id === "divyangjan-swavlamban") {
+      return (
+        qNorm.includes("divyang") ||
+        qNorm.includes("disability") ||
+        qNorm.includes("handicap") ||
+        qNorm.includes("दिव्यांग") ||
+        qNorm.includes("विकलांग") ||
+        qNorm.includes("ದಿವ್ಯಾಂಗ") ||
+        qNorm.includes("ಅಂಗವಿಕಲ")
+      );
+    }
+
+    return false;
   });
 
   if (matchedScheme) {
     const title = (matchedScheme.title as any)[locale] || matchedScheme.title.en;
-    const desc =
-      (matchedScheme.full_description as any)[locale] ||
-      (matchedScheme.short_description as any)[locale] ||
-      matchedScheme.short_description.en;
     const portal = matchedScheme.official_portal_url;
+
+    // Check query intent: Criteria / Exclusion vs Benefit vs Documents vs Steps vs General
+    const isExclusionOrCriteria =
+      qNorm.includes("exclusion") ||
+      qNorm.includes("criteria") ||
+      qNorm.includes("eligible") ||
+      qNorm.includes("अपात्र") ||
+      qNorm.includes("पात्र") ||
+      qNorm.includes("शर्त") ||
+      qNorm.includes("ಹೊರಗಿಡಲಾಗಿದೆ") ||
+      qNorm.includes("ಅರ್ಹ");
+
+    const isBenefit =
+      qNorm.includes("benefit") ||
+      qNorm.includes("cash") ||
+      qNorm.includes("money") ||
+      qNorm.includes("cover") ||
+      qNorm.includes("कितना") ||
+      qNorm.includes("लाभ") ||
+      qNorm.includes("ಎಷ್ಟು") ||
+      qNorm.includes("ಲಾಭ");
+
+    const isDocs =
+      qNorm.includes("document") ||
+      qNorm.includes("dastavez") ||
+      qNorm.includes("proof") ||
+      qNorm.includes("दस्तावेज़") ||
+      qNorm.includes("ದಾಖಲೆ");
+
+    let specificContent = "";
+
+    if (isExclusionOrCriteria && matchedScheme.criteria && matchedScheme.criteria.length > 0) {
+      const criteriaList = matchedScheme.criteria
+        .map((c: any, i: number) => {
+          const exp = c.explanation ? (c.explanation[locale] || c.explanation.en) : c.field_name;
+          return `${i + 1}. ${exp}`;
+        })
+        .join("\n");
+      specificContent =
+        locale === "hi"
+          ? `पात्रता एवं बहिष्करण शर्तें (Eligibility & Criteria):\n${criteriaList}`
+          : locale === "kn"
+          ? `ಅರ್ಹತೆ ಮತ್ತು ಹೊರಗಿಡುವ ಮಾನದಂಡಗಳು (Eligibility & Criteria):\n${criteriaList}`
+          : `Official Statutory Criteria & Exclusions:\n${criteriaList}`;
+    } else if (isBenefit && matchedScheme.benefits && matchedScheme.benefits.length > 0) {
+      const benefitsList = matchedScheme.benefits
+        .map((b: any, i: number) => {
+          const amt = b.amount_description ? (b.amount_description[locale] || b.amount_description.en) : "";
+          return `${i + 1}. ${amt} (${b.frequency || "Direct Benefit Transfer"})`;
+        })
+        .join("\n");
+      specificContent =
+        locale === "hi"
+          ? `योजना के प्रत्यक्ष लाभ (Benefits):\n${benefitsList}`
+          : locale === "kn"
+          ? `ಯೋಜನೆಯ ಪ್ರಯೋಜನಗಳು (Benefits):\n${benefitsList}`
+          : `Direct Welfare Entitlements (Benefits):\n${benefitsList}`;
+    } else if (isDocs && matchedScheme.documents && matchedScheme.documents.length > 0) {
+      const docsList = matchedScheme.documents
+        .map((d: any, i: number) => {
+          const docName = d.document_name ? (d.document_name[locale] || d.document_name.en) : d.document_code;
+          const auth = d.issuing_authority ? (d.issuing_authority[locale] || d.issuing_authority.en) : "";
+          return `${i + 1}. ${docName} (Issuing: ${auth})`;
+        })
+        .join("\n");
+      specificContent =
+        locale === "hi"
+          ? `आवश्यक आधिकारिक दस्तावेज़ (Required Documents):\n${docsList}`
+          : locale === "kn"
+          ? `ಅಗತ್ಯ ಅಧಿಕೃತ ದಾಖಲೆಗಳು (Required Documents):\n${docsList}`
+          : `Mandatory Verification Documents:\n${docsList}`;
+    } else {
+      specificContent =
+        (matchedScheme.full_description as any)[locale] ||
+        (matchedScheme.short_description as any)[locale] ||
+        matchedScheme.short_description.en;
+    }
 
     let ans = "";
     if (locale === "hi") {
-      ans = `सत्यापित आधिकारिक रिकॉर्ड के अनुसार (${title}):\n\n${desc}\n\nअधिक जानकारी और आवेदन के लिए आधिकारिक पोर्टल देखें: ${portal}`;
+      ans = `सत्यापित आधिकारिक रिकॉर्ड के अनुसार (${title}):\n\n${specificContent}\n\nअधिक जानकारी और आवेदन के लिए आधिकारिक पोर्टल देखें: ${portal}`;
     } else if (locale === "kn") {
-      ans = `ಪರಿಶೀಲಿಸಿದ ಅಧಿಕೃತ ದಾಖಲೆಯ ಪ್ರಕಾರ (${title}):\n\n${desc}\n\nಹೆಚ್ಚಿನ ಮಾಹಿತಿ ಮತ್ತು ಅರ್ಜಿ ಸಲ್ಲಿಸಲು ಅಧಿಕೃತ ಪೋರ್ಟಲ್ ವೀಕ್ಷಿಸಿ: ${portal}`;
+      ans = `ಪರಿಶೀಲಿಸಿದ ಅಧಿಕೃತ ದಾಖಲೆಯ ಪ್ರಕಾರ (${title}):\n\n${specificContent}\n\nಹೆಚ್ಚಿನ ಮಾಹಿತಿ ಮತ್ತು ಅರ್ಜಿ ಸಲ್ಲಿಸಲು ಅಧಿಕೃತ ಪೋರ್ಟಲ್ ವೀಕ್ಷಿಸಿ: ${portal}`;
     } else {
-      ans = `According to verified official records for ${title}:\n\n${desc}\n\nFor verified details and application procedures, visit: ${portal}`;
+      ans = `According to verified official records for ${title}:\n\n${specificContent}\n\nFor verified details and application procedures, visit: ${portal}`;
     }
 
     return {
@@ -183,7 +526,7 @@ function synthesizeClientFallback(query: string, locale: string = "en"): Grounde
         {
           scheme_id: matchedScheme.id,
           scheme_name: title,
-          section_title: "Official Scheme Overview",
+          section_title: isExclusionOrCriteria ? "Statutory Criteria & Exclusions" : isBenefit ? "Financial Entitlements" : isDocs ? "Required Documents" : "Official Overview",
           official_portal_url: portal,
           gazette_notification_url: matchedScheme.gazette_notification_url,
           source_reference_date: matchedScheme.source_reference_date || "2024-01-01",
